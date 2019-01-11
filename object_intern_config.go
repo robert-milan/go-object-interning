@@ -12,9 +12,11 @@ const (
 	ZSTDDICT
 )
 
+// Config provides a configuration with default settings
+var Config = NewConfig()
+
 // ObjectInternConfig holds a configuration to use when creating a new ObjectIntern
 type ObjectInternConfig struct {
-	Compression     bool
 	CompressionType uint8
 	Cache           bool
 	MaxCacheSize    uint32
@@ -23,12 +25,8 @@ type ObjectInternConfig struct {
 // NewConfig returns a new configuration with default settings
 func NewConfig() *ObjectInternConfig {
 	return &ObjectInternConfig{
-		Compression:     true,
 		CompressionType: SHOCO,
 		Cache:           true,
 		MaxCacheSize:    157286400, // 150 MB
 	}
 }
-
-// Config provides a configuration with default settings
-var Config = NewConfig()
