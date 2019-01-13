@@ -2,17 +2,43 @@ package goi
 
 import (
 	"testing"
+
+	"github.com/replay/go-generic-object-store"
 )
+
+var testBytes = [][]byte{
+	[]byte("SmallString"),
+	[]byte("LongerString"),
+	[]byte("AnEvenLongerString"),
+	[]byte("metric"),
+	[]byte("AndTheLongestStringWeDealWithWithEvenASmallAmountOfSpaceMoreToGetUsOverTheGiganticLimitOfStuff"),
+}
+
+func TestAddOrGet(t *testing.T) {
+	oi := NewObjectIntern(nil)
+	testResults := make([]gos.ObjAddr, 0)
+
+	for _, b := range testBytes {
+		ret, err := oi.AddOrGet(b)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		testResults = append(testResults, ret)
+	}
+
+	for _, b := range testBytes {
+		ret, err := oi.AddOrGet(b)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		testResults = append(testResults, ret)
+	}
+}
 
 func TestCompressionDecompress(t *testing.T) {
 	oi := NewObjectIntern(nil)
-	testBytes := [][]byte{
-		[]byte("SmallString"),
-		[]byte("LongerString"),
-		[]byte("AnEvenLongerString"),
-		[]byte("metric"),
-		[]byte("AndTheLongestStringWeDealWithWithEvenASmallAmountOfSpaceMoreToGetUsOverTheGiganticLimitOfStuff"),
-	}
 	testResults := make([][]byte, 0)
 
 	for _, b := range testBytes {

@@ -1,7 +1,7 @@
 package goi
 
 import (
-	"fmt"
+	"unsafe"
 
 	gos "github.com/replay/go-generic-object-store"
 	"github.com/tmthrgd/shoco"
@@ -50,9 +50,34 @@ func NewObjectIntern(c *ObjectInternConfig) *ObjectIntern {
 	return oi
 }
 
-// AddOrGet finds or adds and then returns a uintptr to an object
-func (oi *ObjectIntern) AddOrGet(obj []byte) uintptr {
+// AddOrGet finds or adds and then returns a uintptr to an object and nil.
+// On failure it returns 0 and an error
+//
+// If the object is found in the store its reference count is increased by 1.
+// If the object is added to the store its reference count is set to 1.
+func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
+	var addr gos.ObjAddr
+	var ok bool
+	var err error
+
 	objComp := oi.Compress(obj)
-	fmt.Println("Len: ", len(objComp))
-	return 0
+	addr, ok = oi.Store.Search(objComp)
+	if ok {
+		// increment reference count by 1
+		(*(*uint32)(unsafe.Pointer(addr + uintptr(len(objComp)))))++
+		return addr, nil
+	}
+
+	objComp = append(objComp, []byte(uint32(1)))
+	addr, err = oi.Store.Add(objComp)
+	if err != nil {
+		return 0, err
+	}
+	return addr, nil
+}
+
+// Object stores an object address and a reference count
+type Object struct {
+	addr   gos.ObjAddr
+	refCnt uint32
 }

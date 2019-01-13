@@ -5,11 +5,7 @@ package goi
 const (
 	_ = iota
 	SHOCO
-	LZ4
-	ZSTD
 	SHOCODICT
-	LZ4DICT
-	ZSTDDICT
 )
 
 // Config provides a configuration with default settings
@@ -23,6 +19,10 @@ type ObjectInternConfig struct {
 }
 
 // NewConfig returns a new configuration with default settings
+//
+// CompressType: SHOCO,
+// Cache: true,
+// MasCacheSize: 157286400,
 func NewConfig() *ObjectInternConfig {
 	return &ObjectInternConfig{
 		CompressionType: SHOCO,
