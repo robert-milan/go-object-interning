@@ -61,6 +61,8 @@ func (oi *ObjectIntern) DecompressionFunc() func(in []byte) ([]byte, error) {
 }
 
 // Compress returns a compressed version of in as a []byte
+// It is important to keep in mind that not all values can be compressed,
+// so this may at times return the original value
 func (oi *ObjectIntern) Compress(in []byte) []byte {
 	return oi.compress(in)
 }
@@ -72,13 +74,21 @@ func (oi *ObjectIntern) Decompress(in []byte) ([]byte, error) {
 }
 
 // CompressSz returns a compressed version of in as a string
+// It is important to keep in mind that not all values can be compressed,
+// so this may at times return the original value
 func (oi *ObjectIntern) CompressSz(in string) string {
+	if oi.conf.CompressionType == NOCPRSN {
+		return in
+	}
 	return string(oi.compress([]byte(in)))
 }
 
 // DecompressSz returns a decompressed version of string as a string and nil upon success.
-// On failure it returns an empty string and error
+// On failure it returns in and an error
 func (oi *ObjectIntern) DecompressSz(in string) (string, error) {
+	if oi.conf.CompressionType == NOCPRSN {
+		return in, nil
+	}
 	b, err := oi.decompress([]byte(in))
 	if err != nil {
 		return "", err

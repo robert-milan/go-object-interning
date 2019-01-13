@@ -3,7 +3,7 @@ package goi
 //TODO: add explanation of each type of compression etc...
 // Types of compression
 const (
-	_ = iota
+	NOCPRSN = iota
 	SHOCO
 	SHOCODICT
 )
