@@ -11,6 +11,11 @@ var testBytes = [][]byte{
 	[]byte("LongerString"),
 	[]byte("AnEvenLongerString"),
 	[]byte("metric"),
+	[]byte("root"),
+	[]byte("server"),
+	[]byte("servername1234"),
+	[]byte("servername4321"),
+	[]byte("servername91FFXX"),
 	[]byte("AndTheLongestStringWeDealWithWithEvenASmallAmountOfSpaceMoreToGetUsOverTheGiganticLimitOfStuff"),
 }
 
@@ -27,13 +32,22 @@ func TestAddOrGet(t *testing.T) {
 		testResults = append(testResults, ret)
 	}
 
+	// increase reference count to 2
 	for _, b := range testBytes {
-		ret, err := oi.AddOrGet(b)
+		_, err := oi.AddOrGet(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
 		}
-		testResults = append(testResults, ret)
+	}
+
+	// increase reference count to 3
+	for _, b := range testBytes {
+		_, err := oi.AddOrGet(b)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
 	}
 }
 
@@ -42,8 +56,8 @@ func TestCompressionDecompress(t *testing.T) {
 	testResults := make([][]byte, 0)
 
 	for _, b := range testBytes {
-		c := oi.Compress(b)
-		d, err := oi.Decompress(c)
+		c := oi.compress(b)
+		d, err := oi.decompress(c)
 		if err != nil {
 			t.Error("Decompression failed for: ", c)
 			return
@@ -93,19 +107,19 @@ func benchmarkCompress(b *testing.B, cnf *ObjectInternConfig) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.Compress(data)
+		oi.compress(data)
 	}
 }
 
 func benchmarkDecompress(b *testing.B, cnf *ObjectInternConfig) {
 	oi := NewObjectIntern(cnf)
 	data := []byte("HowTheWindBlowsThroughTheTrees")
-	comp := oi.Compress(data)
+	comp := oi.compress(data)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.Decompress(comp)
+		oi.decompress(comp)
 	}
 }
