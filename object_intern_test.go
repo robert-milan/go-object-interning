@@ -2,10 +2,21 @@ package goi
 
 import (
 	"bytes"
+	"fmt"
+	"math/rand"
 	"testing"
-
-	"github.com/replay/go-generic-object-store"
+	"time"
+	"unsafe"
 )
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+var src = rand.NewSource(time.Now().UnixNano())
 
 var testBytes = [][]byte{
 	[]byte("SmallString"),
@@ -33,9 +44,27 @@ var testStrings = []string{
 	string("AndTheLongestStringWeDealWithWithEvenASmallAmountOfSpaceMoreToGetUsOverTheGiganticLimitOfStuff"),
 }
 
+func randStringBytesMaskImprSrc(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return string(b)
+}
+
 func TestAddOrGet(t *testing.T) {
 	oi := NewObjectIntern(nil)
-	testResults := make([]gos.ObjAddr, 0)
+	results := make(map[string]uintptr, 0)
 
 	for _, b := range testBytes {
 		ret, err := oi.AddOrGet(b)
@@ -43,26 +72,124 @@ func TestAddOrGet(t *testing.T) {
 			t.Error("Failed to AddOrGet: ", b)
 			return
 		}
-		testResults = append(testResults, ret)
+		// need to compress b just as is done in the actual AddOrGet method
+		results[string(oi.compress(b))] = ret
 	}
 
 	// increase reference count to 2
 	for _, b := range testBytes {
-		_, err := oi.AddOrGet(b)
+		addr, err := oi.AddOrGet(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		refCnt := *(*uint32)(unsafe.Pointer(addr + uintptr(len(oi.compress(b)))))
+		if refCnt != 2 {
+			t.Errorf("Reference count should be 2, instead found %d\n", refCnt)
 			return
 		}
 	}
 
 	// increase reference count to 3
 	for _, b := range testBytes {
-		_, err := oi.AddOrGet(b)
+		addr, err := oi.AddOrGet(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
 		}
+		refCnt := *(*uint32)(unsafe.Pointer(addr + uintptr(len(oi.compress(b)))))
+		if refCnt != 3 {
+			t.Errorf("Reference count should be 3, instead found %d\n", refCnt)
+			return
+		}
 	}
+
+	// make sure all of these keys exist in the cache
+	for k, v := range oi.ObjCache {
+		if v != results[k] {
+			t.Error("Results not found in cache")
+			return
+		}
+	}
+}
+
+func TestRefCount(t *testing.T) {
+
+}
+
+func TestAddOrGetAndDelete25(t *testing.T) {
+	testAddOrGetAndDelete(t, 25, 10)
+}
+
+func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int) {
+	oi := NewObjectIntern(nil)
+
+	// slice to store addresses
+	addrs := make([]uintptr, 0)
+	// generate numKeys random strings of keySize length
+	originalSzs := make([]string, 0)
+	// also generate compressed versions stored in []byte
+	compSzs := make([][]byte, 0)
+	for i := 0; i < numKeys; i++ {
+		sz := randStringBytesMaskImprSrc(keySize)
+		originalSzs = append(originalSzs, sz)
+		compSzs = append(compSzs, oi.compress([]byte(sz)))
+	}
+
+	// reference count should be 1 after this finishes
+	for _, sz := range originalSzs {
+		addr, err := oi.AddOrGet([]byte(sz))
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", []byte(sz))
+			return
+		}
+		// need to compress b just as is done in the actual AddOrGet method
+		addrs = append(addrs, addr)
+	}
+
+	// reference count should be 2 after this finishes
+	for _, sz := range originalSzs {
+		_, err := oi.AddOrGet([]byte(sz))
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", []byte(sz))
+			return
+		}
+	}
+
+	// decrease reference count by 1, it should now be 1 again
+	for _, addr := range addrs {
+		ok, err := oi.Delete(addr)
+		if err != nil {
+			t.Error("Failed to delete object (possibly not found in the object store): ", addr)
+			return
+		}
+		if ok {
+			t.Error("Ok should be false since reference count is at 1 now")
+			return
+		}
+	}
+
+	// decrease reference count by 1, now objects should be deleted
+	for _, addr := range addrs {
+		ok, err := oi.Delete(addr)
+		if err != nil {
+			t.Error("Failed to delete object (possibly not found in the object store): ", addr)
+			return
+		}
+		if !ok {
+			t.Error("Ok should be true since object should have been deleted")
+			// fmt.Printf("Returned false for addr: %v\n", addr)
+			// sz, err := oi.ObjString(addr)
+			// if err != nil {
+			// 	fmt.Printf("Error: %v\n", err)
+			// }
+			// if err == nil {
+			// 	fmt.Printf("Object String: %v\n", sz)
+			// }
+			return
+		}
+	}
+
 }
 
 func TestObjBytes(t *testing.T) {
@@ -92,7 +219,29 @@ func TestObjBytes(t *testing.T) {
 }
 
 func TestObjString(t *testing.T) {
+	oi := NewObjectIntern(nil)
+	objAddrs := make([]uintptr, 0)
 
+	for _, b := range testBytes {
+		addr, err := oi.AddOrGet(b)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		objAddrs = append(objAddrs, addr)
+	}
+
+	for idx, addr := range objAddrs {
+		valFromStore, err := oi.ObjString(addr)
+		if err != nil {
+			t.Error("Failed while getting ObjString")
+			return
+		}
+		if valFromStore != testStrings[idx] {
+			t.Error("Original and returned values do not match")
+			return
+		}
+	}
 }
 
 func TestCompressDecompress(t *testing.T) {
@@ -137,6 +286,299 @@ func TestCompressSzDecompressSz(t *testing.T) {
 		if res != testStrings[i] {
 			t.Error("Mismatched: ", res, " - ", testStrings[i])
 			return
+		}
+	}
+}
+
+func BenchmarkMapSzLookup10(b *testing.B) {
+	benchmarkMapSzLookup(b, 10)
+}
+
+func BenchmarkMapSzLookup100(b *testing.B) {
+	benchmarkMapSzLookup(b, 100)
+}
+
+func BenchmarkMapSzLookup1000(b *testing.B) {
+	benchmarkMapSzLookup(b, 1000)
+}
+
+func BenchmarkMapSzLookup10000(b *testing.B) {
+	benchmarkMapSzLookup(b, 10000)
+}
+
+func BenchmarkMapSzLookup100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapSzLookup(b, 100000)
+}
+
+func BenchmarkMapSzLookup1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapSzLookup(b, 1000000)
+}
+
+func BenchmarkMapSzLookup5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapSzLookup(b, 5000000)
+}
+
+func benchmarkMapSzLookup(b *testing.B, num int) {
+	cache := make(map[string]uintptr)
+	keys := make([]string, 0)
+	vals := make([]uintptr, 0)
+	for i := 0; i < num; i++ {
+		key := fmt.Sprintf("%d", i)
+		keys = append(keys, key)
+		vals = append(vals, uintptr(i))
+		cache[key] = vals[i]
+
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for j, key := range keys {
+			val := cache[key]
+			if val != vals[j] {
+				b.Error("Value from map does not match value in slice")
+				return
+			}
+		}
+	}
+}
+
+func BenchmarkMapSzInsert10(b *testing.B) {
+	benchmarkMapSzInsert(b, 10)
+}
+
+func BenchmarkMapSzInsert100(b *testing.B) {
+	benchmarkMapSzInsert(b, 100)
+}
+
+func BenchmarkMapSzInsert1000(b *testing.B) {
+	benchmarkMapSzInsert(b, 1000)
+}
+
+func BenchmarkMapSzInsert10000(b *testing.B) {
+	benchmarkMapSzInsert(b, 10000)
+}
+
+func BenchmarkMapSzInsert100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapSzInsert(b, 100000)
+}
+
+func BenchmarkMapSzInsert1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapSzInsert(b, 1000000)
+}
+
+func BenchmarkMapSzInsert5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapSzInsert(b, 5000000)
+}
+
+func benchmarkMapSzInsert(b *testing.B, num int) {
+	cache := make(map[string]uintptr)
+	keys := make([]string, 0)
+	vals := make([]uintptr, 0)
+	for i := 0; i < num; i++ {
+		keys = append(keys, fmt.Sprintf("%d", i))
+		vals = append(vals, uintptr(i))
+
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for j, key := range keys {
+			cache[key] = vals[j]
+		}
+	}
+}
+
+func BenchmarkMapIntLookup10(b *testing.B) {
+	benchmarkMapIntLookup(b, 10)
+}
+
+func BenchmarkMapIntLookup100(b *testing.B) {
+	benchmarkMapIntLookup(b, 100)
+}
+
+func BenchmarkMapIntLookup1000(b *testing.B) {
+	benchmarkMapIntLookup(b, 1000)
+}
+
+func BenchmarkMapIntLookup10000(b *testing.B) {
+	benchmarkMapIntLookup(b, 10000)
+}
+
+func BenchmarkMapIntLookup100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapIntLookup(b, 100000)
+}
+
+func BenchmarkMapIntLookup1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapIntLookup(b, 1000000)
+}
+
+func BenchmarkMapIntLookup5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapIntLookup(b, 5000000)
+}
+
+func benchmarkMapIntLookup(b *testing.B, num int) {
+	cache := make(map[uint32]uintptr)
+	keys := make([]uint32, 0)
+	vals := make([]uintptr, 0)
+	for i := 0; i < num; i++ {
+		keys = append(keys, uint32(i))
+		vals = append(vals, uintptr(i))
+		cache[uint32(i)] = vals[i]
+
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for j, key := range keys {
+			val := cache[key]
+			if val != vals[j] {
+				b.Error("Value from map does not match value in slice")
+				return
+			}
+		}
+	}
+}
+
+func BenchmarkMapIntInsert10(b *testing.B) {
+	benchmarkMapIntInsert(b, 10)
+}
+
+func BenchmarkMapIntInsert100(b *testing.B) {
+	benchmarkMapIntInsert(b, 100)
+}
+
+func BenchmarkMapIntInsert1000(b *testing.B) {
+	benchmarkMapIntInsert(b, 1000)
+}
+
+func BenchmarkMapIntInsert10000(b *testing.B) {
+	benchmarkMapIntInsert(b, 10000)
+}
+
+func BenchmarkMapIntInsert100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapIntInsert(b, 100000)
+}
+
+func BenchmarkMapIntInsert1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapIntInsert(b, 1000000)
+}
+
+func BenchmarkMapIntInsert5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkMapIntInsert(b, 5000000)
+}
+
+func benchmarkMapIntInsert(b *testing.B, num int) {
+	cache := make(map[uint32]uintptr)
+	keys := make([]uint32, 0)
+	vals := make([]uintptr, 0)
+	for i := 0; i < num; i++ {
+		keys = append(keys, uint32(i))
+		vals = append(vals, uintptr(i))
+
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for j, key := range keys {
+			cache[key] = vals[j]
+		}
+	}
+}
+
+func BenchmarkAddOrGet10(b *testing.B) {
+	benchmarkAddOrGet(b, 10)
+}
+
+func BenchmarkAddOrGet100(b *testing.B) {
+	benchmarkAddOrGet(b, 100)
+}
+
+func BenchmarkAddOrGet1000(b *testing.B) {
+	benchmarkAddOrGet(b, 1000)
+}
+
+func BenchmarkAddOrGet10000(b *testing.B) {
+	benchmarkAddOrGet(b, 10000)
+}
+
+func BenchmarkAddOrGet100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGet(b, 100000)
+}
+
+func BenchmarkAddOrGet1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGet(b, 1000000)
+}
+
+func BenchmarkAddOrGet5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGet(b, 5000000)
+}
+
+func benchmarkAddOrGet(b *testing.B, num int) {
+	oi := NewObjectIntern(nil)
+	data := make([][]byte, 0)
+	for i := 0; i < num; i++ {
+		data = append(data, []byte(fmt.Sprintf("%d", i)))
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for _, obj := range data {
+			oi.AddOrGet(obj)
 		}
 	}
 }
