@@ -104,10 +104,10 @@ func TestAddOrGet(t *testing.T) {
 		}
 	}
 
-	// make sure all of these keys exist in the cache
-	for k, v := range oi.ObjCache {
+	// make sure all of these keys exist in the index
+	for k, v := range oi.ObjIndex {
 		if v != results[k] {
-			t.Error("Results not found in cache")
+			t.Error("Results not found in index")
 			return
 		}
 	}
@@ -358,14 +358,14 @@ func BenchmarkMapSzLookup5000000(b *testing.B) {
 }
 
 func benchmarkMapSzLookup(b *testing.B, num int) {
-	cache := make(map[string]uintptr)
+	index := make(map[string]uintptr)
 	keys := make([]string, 0)
 	vals := make([]uintptr, 0)
 	for i := 0; i < num; i++ {
 		key := fmt.Sprintf("%d", i)
 		keys = append(keys, key)
 		vals = append(vals, uintptr(i))
-		cache[key] = vals[i]
+		index[key] = vals[i]
 
 	}
 
@@ -374,7 +374,7 @@ func benchmarkMapSzLookup(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for j, key := range keys {
-			val := cache[key]
+			val := index[key]
 			if val != vals[j] {
 				b.Error("Value from map does not match value in slice")
 				return
@@ -421,7 +421,7 @@ func BenchmarkMapSzInsert5000000(b *testing.B) {
 }
 
 func benchmarkMapSzInsert(b *testing.B, num int) {
-	cache := make(map[string]uintptr)
+	index := make(map[string]uintptr)
 	keys := make([]string, 0)
 	vals := make([]uintptr, 0)
 	for i := 0; i < num; i++ {
@@ -435,7 +435,7 @@ func benchmarkMapSzInsert(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for j, key := range keys {
-			cache[key] = vals[j]
+			index[key] = vals[j]
 		}
 	}
 }
@@ -478,13 +478,13 @@ func BenchmarkMapIntLookup5000000(b *testing.B) {
 }
 
 func benchmarkMapIntLookup(b *testing.B, num int) {
-	cache := make(map[uint32]uintptr)
+	index := make(map[uint32]uintptr)
 	keys := make([]uint32, 0)
 	vals := make([]uintptr, 0)
 	for i := 0; i < num; i++ {
 		keys = append(keys, uint32(i))
 		vals = append(vals, uintptr(i))
-		cache[uint32(i)] = vals[i]
+		index[uint32(i)] = vals[i]
 
 	}
 
@@ -493,7 +493,7 @@ func benchmarkMapIntLookup(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for j, key := range keys {
-			val := cache[key]
+			val := index[key]
 			if val != vals[j] {
 				b.Error("Value from map does not match value in slice")
 				return
@@ -540,7 +540,7 @@ func BenchmarkMapIntInsert5000000(b *testing.B) {
 }
 
 func benchmarkMapIntInsert(b *testing.B, num int) {
-	cache := make(map[uint32]uintptr)
+	index := make(map[uint32]uintptr)
 	keys := make([]uint32, 0)
 	vals := make([]uintptr, 0)
 	for i := 0; i < num; i++ {
@@ -554,7 +554,7 @@ func benchmarkMapIntInsert(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for j, key := range keys {
-			cache[key] = vals[j]
+			index[key] = vals[j]
 		}
 	}
 }

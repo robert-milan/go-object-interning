@@ -14,8 +14,8 @@ var Config = NewConfig()
 // ObjectInternConfig holds a configuration to use when creating a new ObjectIntern
 type ObjectInternConfig struct {
 	CompressionType uint8
-	Cache           bool
-	MaxCacheSize    uint32
+	Index           bool
+	MaxIndexSize    uint32
 }
 
 // NewConfig returns a new configuration with default settings
@@ -26,7 +26,7 @@ type ObjectInternConfig struct {
 func NewConfig() *ObjectInternConfig {
 	return &ObjectInternConfig{
 		CompressionType: SHOCO,
-		Cache:           true,
-		MaxCacheSize:    157286400, // 150 MB
+		Index:           true,
+		MaxIndexSize:    157286400, // 150 MB
 	}
 }

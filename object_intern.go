@@ -15,7 +15,7 @@ type ObjectIntern struct {
 	sync.RWMutex
 	conf       *ObjectInternConfig
 	Store      gos.ObjectStore
-	ObjCache   map[string]uintptr
+	ObjIndex   map[string]uintptr
 	compress   func(in []byte) []byte
 	decompress func(in []byte) ([]byte, error)
 }
@@ -27,7 +27,7 @@ func NewObjectIntern(c *ObjectInternConfig) *ObjectIntern {
 	oi := &ObjectIntern{
 		conf:     Config,
 		Store:    gos.NewObjectStore(100),
-		ObjCache: make(map[string]uintptr),
+		ObjIndex: make(map[string]uintptr),
 	}
 	if c != nil {
 		oi.conf = c
@@ -119,8 +119,8 @@ func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
 	// acquire read lock
 	oi.RLock()
 
-	// try to find the object in the cache
-	addr, ok = oi.ObjCache[objSz]
+	// try to find the object in the index
+	addr, ok = oi.ObjIndex[objSz]
 	if ok {
 		// increment reference count by 1
 		(*(*uint32)(unsafe.Pointer(addr + uintptr(len(objComp)))))++
@@ -133,7 +133,7 @@ func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
 	oi.Lock()
 
 	// check if object was added before we re-acquired the lock
-	addr, ok = oi.ObjCache[objSz]
+	addr, ok = oi.ObjIndex[objSz]
 	if ok {
 		// increment reference count by 1
 		(*(*uint32)(unsafe.Pointer(addr + uintptr(len(objComp)))))++
@@ -141,7 +141,7 @@ func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
 		return addr, nil
 	}
 
-	// The object is not in the cache therefore it is not in the store.
+	// The object is not in the index therefore it is not in the store.
 	// We need to set its initial reference count to 1 before adding it
 	objComp = append(objComp, []byte{0x1, 0x0, 0x0, 0x0}...)
 	addr, err = oi.Store.Add(objComp)
@@ -153,8 +153,8 @@ func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
 	// set objSz data to the object inside the object store
 	((*reflect.StringHeader)(unsafe.Pointer(&objSz))).Data = addr
 
-	// add the object to the cache
-	oi.ObjCache[objSz] = addr
+	// add the object to the index
+	oi.ObjIndex[objSz] = addr
 
 	oi.Unlock()
 	return addr, nil
@@ -163,7 +163,7 @@ func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
 // Delete decrements the reference count of an object identified by its address.
 // Possible return values are as follows:
 //
-// true, nil - reference count reached 0 and the object was removed from both the cache
+// true, nil - reference count reached 0 and the object was removed from both the index
 // and the object store.
 //
 // false, nil - reference count was decremented by 1 and no further action was taken.
@@ -192,16 +192,16 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 		return false, nil
 	}
 
-	// if reference count is 1, delete the object and remove it from cache
+	// if reference count is 1, delete the object and remove it from index
 	// If one of these operations fails it is still safe to perform the other
 	// Once we get to this point we are just going to remove all traces of the object
 
-	// delete object from cache first
+	// delete object from index first
 	// If you delete all of the objects in the slab then the slab will be deleted
 	// When this happens the memory that the slab was using is MUnmapped, which is
-	// the same memory pointed to by the key stored in the ObjCache. When you try to
-	// access the key to delete it from the ObjCache you will get a SEGFAULT
-	delete(oi.ObjCache, string(compObj[:len(compObj)-4]))
+	// the same memory pointed to by the key stored in the ObjIndex. When you try to
+	// access the key to delete it from the ObjIndex you will get a SEGFAULT
+	delete(oi.ObjIndex, string(compObj[:len(compObj)-4]))
 
 	// delete object from object store
 	err = oi.Store.Delete(objAddr)
