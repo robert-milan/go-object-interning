@@ -202,15 +202,16 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 		// If one of these operations fails it is still safe to perform the other
 		// Once we get to this point we are just going to remove all traces of the object
 
-		// TODO: check order of delete operations and how it affects
-		// actual memory in the object store. Does this clear the data
-		// in the store?
-
-		// delete object from cache
+		// delete object from cache first
+		// If you delete all of the objects in the slab then the slab will be deleted
+		// When this happens the memory that the slab was using is MUnmapped, which also
+		// clears the memory pointed to by the key stored in the ObjCache. When you try to
+		// access the key to delete it from the ObjCache you will get a SEGFAULT
 		delete(oi.ObjCache, string(compObj[:len(compObj)-4]))
 
 		// delete object from object store
 		err := oi.Store.Delete(objAddr)
+
 		if err == nil {
 			oi.Unlock()
 			return true, nil

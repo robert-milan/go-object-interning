@@ -118,7 +118,7 @@ func TestRefCount(t *testing.T) {
 }
 
 func TestAddOrGetAndDelete25(t *testing.T) {
-	testAddOrGetAndDelete(t, 25, 10)
+	testAddOrGetAndDelete(t, 25, 501)
 }
 
 func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int) {
@@ -169,7 +169,7 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int) {
 		}
 	}
 
-	// decrease reference count by 1, now objects should be deleted
+	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
 	for _, addr := range addrs {
 		ok, err := oi.Delete(addr)
 		if err != nil {
@@ -178,14 +178,6 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int) {
 		}
 		if !ok {
 			t.Error("Ok should be true since object should have been deleted")
-			// fmt.Printf("Returned false for addr: %v\n", addr)
-			// sz, err := oi.ObjString(addr)
-			// if err != nil {
-			// 	fmt.Printf("Error: %v\n", err)
-			// }
-			// if err == nil {
-			// 	fmt.Printf("Object String: %v\n", sz)
-			// }
 			return
 		}
 	}
