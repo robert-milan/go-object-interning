@@ -114,7 +114,41 @@ func TestAddOrGet(t *testing.T) {
 }
 
 func TestRefCount(t *testing.T) {
+	oi := NewObjectIntern(nil)
+	results := make(map[string]uintptr, 0)
 
+	for _, b := range testBytes {
+		ret, err := oi.AddOrGet(b)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		// need to compress b just as is done in the actual AddOrGet method
+		results[string(oi.compress(b))] = ret
+	}
+
+	// increase reference count to 10
+	for i := 0; i < 9; i++ {
+		for _, b := range testBytes {
+			_, err := oi.AddOrGet(b)
+			if err != nil {
+				t.Error("Failed to AddOrGet: ", b)
+				return
+			}
+		}
+	}
+
+	for _, v := range results {
+		rc, err := oi.RefCnt(v)
+		if err != nil {
+			t.Error("Failed to get reference count: ", rc)
+			return
+		}
+		if rc != 10 {
+			t.Error("Reference Count should be 10, instead we found ", rc)
+			return
+		}
+	}
 }
 
 func TestAddOrGetAndDelete25(t *testing.T) {

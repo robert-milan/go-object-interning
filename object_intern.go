@@ -9,7 +9,8 @@ import (
 	"github.com/tmthrgd/shoco"
 )
 
-// ObjectIntern stores a map of slices to memory addresses of previously interned objects
+// ObjectIntern stores a map of uintptrs to interned objects.
+// The string key is itself using an interned object for its data pointer
 type ObjectIntern struct {
 	sync.RWMutex
 	conf       *ObjectInternConfig
@@ -20,7 +21,8 @@ type ObjectIntern struct {
 }
 
 // NewObjectIntern returns a new ObjectIntern. Pass in
-// nil if you want to use the default configuration
+// nil if you want to use the default configuration, otherwise
+// pass in a custom configuration
 func NewObjectIntern(c *ObjectInternConfig) *ObjectIntern {
 	oi := &ObjectIntern{
 		conf:     Config,
@@ -174,41 +176,42 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 	// acquire write lock
 	oi.Lock()
 
-	// rcheck if object exists in the object store
+	// check if object exists in the object store
 	compObj, err = oi.Store.Get(objAddr)
 	if err != nil {
 		oi.Unlock()
 		return false, err
 	}
 
-	// if reference count is 1, delete the object and remove it from cache
-	if *(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)-4))) == 1 {
-		// If one of these operations fails it is still safe to perform the other
-		// Once we get to this point we are just going to remove all traces of the object
+	// most likely case is that we will just decrement the reference count and return
+	if *(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)-4))) > 1 {
+		// decrement reference count by 1
+		(*(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)-4))))--
 
-		// delete object from cache first
-		// If you delete all of the objects in the slab then the slab will be deleted
-		// When this happens the memory that the slab was using is MUnmapped, which is
-		// the same memory pointed to by the key stored in the ObjCache. When you try to
-		// access the key to delete it from the ObjCache you will get a SEGFAULT
-		delete(oi.ObjCache, string(compObj[:len(compObj)-4]))
-
-		// delete object from object store
-		err := oi.Store.Delete(objAddr)
-
-		if err == nil {
-			oi.Unlock()
-			return true, nil
-		}
 		oi.Unlock()
-		return false, err
+		return false, nil
 	}
 
-	// decrement reference count by 1
-	(*(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)-4))))--
+	// if reference count is 1, delete the object and remove it from cache
+	// If one of these operations fails it is still safe to perform the other
+	// Once we get to this point we are just going to remove all traces of the object
 
+	// delete object from cache first
+	// If you delete all of the objects in the slab then the slab will be deleted
+	// When this happens the memory that the slab was using is MUnmapped, which is
+	// the same memory pointed to by the key stored in the ObjCache. When you try to
+	// access the key to delete it from the ObjCache you will get a SEGFAULT
+	delete(oi.ObjCache, string(compObj[:len(compObj)-4]))
+
+	// delete object from object store
+	err = oi.Store.Delete(objAddr)
+
+	if err == nil {
+		oi.Unlock()
+		return true, nil
+	}
 	oi.Unlock()
-	return false, nil
+	return false, err
 }
 
 // RefCnt checks if the object identified by objAddr exists in the
@@ -225,7 +228,7 @@ func (oi *ObjectIntern) RefCnt(objAddr uintptr) (uint32, error) {
 		return 0, err
 	}
 
-	return *(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)))), nil
+	return *(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)-4))), nil
 
 }
 
