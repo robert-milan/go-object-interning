@@ -171,26 +171,10 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 	var compObj []byte
 	var err error
 
-	// TODO: think about removing the first check as it is highly unlikely
-	// that the object won't exist and we may just be wasting cpu and adding
-	// complexity here. Instead just go straight to a write lock.
-
-	// acquire read lock
-	oi.RLock()
-	// check if object exists in the object store
-	compObj, err = oi.Store.Get(objAddr)
-	if err != nil {
-		oi.RUnlock()
-		return false, err
-	}
-
 	// acquire write lock
-	oi.RUnlock()
 	oi.Lock()
 
-	// re-check if object still exists in the object store because
-	// there is a small chance that it has changed while we were
-	// re-acquiring the new lock
+	// rcheck if object exists in the object store
 	compObj, err = oi.Store.Get(objAddr)
 	if err != nil {
 		oi.Unlock()
@@ -204,8 +188,8 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 
 		// delete object from cache first
 		// If you delete all of the objects in the slab then the slab will be deleted
-		// When this happens the memory that the slab was using is MUnmapped, which also
-		// clears the memory pointed to by the key stored in the ObjCache. When you try to
+		// When this happens the memory that the slab was using is MUnmapped, which is
+		// the same memory pointed to by the key stored in the ObjCache. When you try to
 		// access the key to delete it from the ObjCache you will get a SEGFAULT
 		delete(oi.ObjCache, string(compObj[:len(compObj)-4]))
 

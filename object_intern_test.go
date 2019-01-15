@@ -121,6 +121,10 @@ func TestAddOrGetAndDelete25(t *testing.T) {
 	testAddOrGetAndDelete(t, 25, 501)
 }
 
+func TestAddOrGetAndDelete250(t *testing.T) {
+	testAddOrGetAndDelete(t, 250, 501)
+}
+
 func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int) {
 	oi := NewObjectIntern(nil)
 
@@ -143,7 +147,7 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int) {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
 		}
-		// need to compress b just as is done in the actual AddOrGet method
+		// add addr to addrs
 		addrs = append(addrs, addr)
 	}
 
