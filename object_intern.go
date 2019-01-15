@@ -89,7 +89,7 @@ func (oi *ObjectIntern) CompressSz(in string) string {
 }
 
 // DecompressSz returns a decompressed version of string as a string and nil upon success.
-// On failure it returns in and an error
+// On failure it returns in and an error.
 func (oi *ObjectIntern) DecompressSz(in string) (string, error) {
 	if oi.conf.CompressionType == NOCPRSN {
 		return in, nil
@@ -201,6 +201,8 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 	// When this happens the memory that the slab was using is MUnmapped, which is
 	// the same memory pointed to by the key stored in the ObjIndex. When you try to
 	// access the key to delete it from the ObjIndex you will get a SEGFAULT
+	//
+	// remove 4 trailing bytes for reference count since ObjIndex does not store reference count in the key
 	delete(oi.ObjIndex, string(compObj[:len(compObj)-4]))
 
 	// delete object from object store
@@ -228,12 +230,19 @@ func (oi *ObjectIntern) RefCnt(objAddr uintptr) (uint32, error) {
 		return 0, err
 	}
 
+	// remove 4 trailing bytes for reference count
 	return *(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)-4))), nil
 
 }
 
 // ObjBytes returns a []byte and nil on success.
-// On failure it returns nil and an error
+// On failure it returns nil and an error.
+//
+// If compression is used, this method does not use the interned data to create a []byte,
+// instead it allocates a new []byte.
+//
+// If compression is turned off, this will return a []byte slice with the backing array
+// set to the interned data.
 func (oi *ObjectIntern) ObjBytes(objAddr uintptr) ([]byte, error) {
 	oi.RLock()
 	defer oi.RUnlock()
@@ -251,7 +260,10 @@ func (oi *ObjectIntern) ObjBytes(objAddr uintptr) ([]byte, error) {
 }
 
 // ObjString returns a string and nil on success.
-// On failure it returns an empty string and an error
+// On failure it returns an empty string and an error.
+//
+// This method does not use the interned data to create a string,
+// instead it allocates a new string.
 func (oi *ObjectIntern) ObjString(objAddr uintptr) (string, error) {
 	oi.RLock()
 	defer oi.RUnlock()

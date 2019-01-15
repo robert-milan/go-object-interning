@@ -152,15 +152,27 @@ func TestRefCount(t *testing.T) {
 }
 
 func TestAddOrGetAndDelete25(t *testing.T) {
-	testAddOrGetAndDelete(t, 25, 501)
+	testAddOrGetAndDelete(t, 25, 501, nil)
 }
 
 func TestAddOrGetAndDelete250(t *testing.T) {
-	testAddOrGetAndDelete(t, 250, 501)
+	testAddOrGetAndDelete(t, 250, 501, nil)
 }
 
-func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int) {
-	oi := NewObjectIntern(nil)
+func TestAddOrGetAndDeleteNoCprsn25(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = NOCPRSN
+	testAddOrGetAndDelete(t, 25, 501, cnf)
+}
+
+func TestAddOrGetAndDeleteNoCprsn250(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = NOCPRSN
+	testAddOrGetAndDelete(t, 250, 501, cnf)
+}
+
+func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf *ObjectInternConfig) {
+	oi := NewObjectIntern(cnf)
 
 	// slice to store addresses
 	addrs := make([]uintptr, 0)
