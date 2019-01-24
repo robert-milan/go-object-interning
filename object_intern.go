@@ -1,6 +1,7 @@
 package goi
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"unsafe"
@@ -158,6 +159,36 @@ func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
 
 	oi.Unlock()
 	return addr, nil
+}
+
+// GetNoRefCnt finds an interned object and returns its address as a uintptr.
+// Upon failure it returns 0 and an error.
+//
+// This method is designed specifically to be used with map keys that are interned,
+// since the only way to retrieve the key itself is by iterating over the entire map.
+// This method should be faster than iterating over a map (depending on the size of the map).
+// This is usually called directly before deleting an interned map key from its map so that we
+// can properly decrement the reference count of that interned object.
+func (oi *ObjectIntern) GetNoRefCnt(obj []byte) (uintptr, error) {
+	var addr gos.ObjAddr
+	var ok bool
+	var objSz string
+
+	// compress the object before searching for it
+	objComp := oi.compress(obj)
+	objSz = string(objComp)
+
+	// acquire read lock
+	oi.RLock()
+
+	// try to find the object in the index
+	addr, ok = oi.ObjIndex[objSz]
+	if ok {
+		oi.RUnlock()
+		return addr, nil
+	}
+
+	return 0, fmt.Errorf("Could not find object in store")
 }
 
 // Delete decrements the reference count of an object identified by its address.
