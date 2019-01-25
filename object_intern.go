@@ -377,7 +377,7 @@ func (oi *ObjectIntern) ObjString(objAddr uintptr) (string, error) {
 // SetString takes an object adress and a string header.
 // Upon success it sets the string to point at objAddr with the proper length set.
 // On failure it takes no action and returns false.
-func (oi *ObjectIntern) SetString(objAddr uintptr, szHdr reflect.StringHeader) bool {
+func (oi *ObjectIntern) SetString(objAddr uintptr, szHdr *reflect.StringHeader) bool {
 	oi.RLock()
 	defer oi.RUnlock()
 
@@ -399,7 +399,7 @@ func (oi *ObjectIntern) SetString(objAddr uintptr, szHdr reflect.StringHeader) b
 // SetStringNoCprsn takes an object adress and a string header, it assumes that compression is turned off.
 // Upon success it sets the string to point at objAddr with the proper length set.
 // On failure it takes no action and returns false.
-func (oi *ObjectIntern) SetStringNoCprsn(objAddr uintptr, szHdr reflect.StringHeader) bool {
+func (oi *ObjectIntern) SetStringNoCprsn(objAddr uintptr, szHdr *reflect.StringHeader) bool {
 	oi.RLock()
 	defer oi.RUnlock()
 
@@ -418,19 +418,19 @@ func (oi *ObjectIntern) SetStringNoCprsn(objAddr uintptr, szHdr reflect.StringHe
 // The returned slice indexes should match the indexes of the slice of uintptrs.
 // On failure it returns a possibly partial slice of the lengths, and false.
 func (oi *ObjectIntern) LenNoCprsn(ptrs []uintptr) (retLn []int, all bool) {
-	retLn = make([]int, 0)
+	retLn = make([]int, len(ptrs))
 	all = true
 
 	oi.RLock()
 	defer oi.RUnlock()
 
-	for _, ptr := range ptrs {
+	for idx, ptr := range ptrs {
 		b, err := oi.Store.Get(ptr)
 		if err != nil {
 			return retLn, false
 		}
 		// remove 4 trailing bytes of reference count
-		retLn = append(retLn, (len(b) - 4))
+		retLn[idx] = len(b) - 4
 	}
 	return
 }
