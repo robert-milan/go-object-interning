@@ -373,3 +373,64 @@ func (oi *ObjectIntern) ObjString(objAddr uintptr) (string, error) {
 	}
 	return string(objDecomp), nil
 }
+
+// SetString takes an object adress and a string header.
+// Upon success it sets the string to point at objAddr with the proper length set.
+// On failure it takes no action and returns false.
+func (oi *ObjectIntern) SetString(objAddr uintptr, szHdr reflect.StringHeader) bool {
+	oi.RLock()
+	defer oi.RUnlock()
+
+	b, err := oi.Store.Get(objAddr)
+	if err != nil {
+		return false
+	}
+
+	objDecomp, err := oi.decompress(b[:len(b)-4])
+	if err != nil {
+		return false
+	}
+
+	szHdr.Data = objAddr
+	szHdr.Len = len(objDecomp)
+	return true
+}
+
+// SetStringNoCprsn takes an object adress and a string header, it assumes that compression is turned off.
+// Upon success it sets the string to point at objAddr with the proper length set.
+// On failure it takes no action and returns false.
+func (oi *ObjectIntern) SetStringNoCprsn(objAddr uintptr, szHdr reflect.StringHeader) bool {
+	oi.RLock()
+	defer oi.RUnlock()
+
+	b, err := oi.Store.Get(objAddr)
+	if err != nil {
+		return false
+	}
+
+	szHdr.Data = objAddr
+	szHdr.Len = len(b) - 4
+	return true
+}
+
+// LenNoCprsn takes a slice of object addresses, it assumes that compression is turned off.
+// Upon success it returns a slice of the lengths of all of the interned objects - the 4 trailing bytes for reference count, and true.
+// The returned slice indexes should match the indexes of the slice of uintptrs.
+// On failure it returns a possibly partial slice of the lengths, and false.
+func (oi *ObjectIntern) LenNoCprsn(ptrs []uintptr) (retLn []int, all bool) {
+	retLn = make([]int, 0)
+	all = true
+
+	oi.RLock()
+	defer oi.RUnlock()
+
+	for _, ptr := range ptrs {
+		b, err := oi.Store.Get(ptr)
+		if err != nil {
+			return retLn, false
+		}
+		// remove 4 trailing bytes of reference count
+		retLn = append(retLn, (len(b) - 4))
+	}
+	return
+}
