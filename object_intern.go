@@ -247,6 +247,69 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 	return false, err
 }
 
+// DeleteByVal decrements the reference count of an object identified by its value as a []byte.
+// Possible return values are as follows:
+//
+// true, nil - reference count reached 0 and the object was removed from both the index
+// and the object store.
+//
+// false, nil - reference count was decremented by 1 and no further action was taken.
+//
+// false, error - the object was not found in the object store or could not be deleted
+func (oi *ObjectIntern) DeleteByVal(obj []byte) (bool, error) {
+	var addr gos.ObjAddr
+	var ok bool
+	var objSz string
+
+	// compress the object before searching for it
+	objComp := oi.compress(obj)
+	objSz = string(objComp)
+
+	// acquire read lock
+	oi.RLock()
+
+	// try to find the object in the index
+	addr, ok = oi.ObjIndex[objSz]
+	if !ok {
+		oi.RUnlock()
+		return false, fmt.Errorf("Could not find object in store")
+	}
+
+	oi.RUnlock()
+	return oi.Delete(addr)
+}
+
+// DeleteByValSz decrements the reference count of an object identified by its string representation.
+//
+// WARNING: This method only works if compression is turned off (NOCPRSN), or you pass in a compressed
+// version of the string/object
+//
+// Possible return values are as follows:
+//
+// true, nil - reference count reached 0 and the object was removed from both the index
+// and the object store.
+//
+// false, nil - reference count was decremented by 1 and no further action was taken.
+//
+// false, error - the object was not found in the object store or could not be deleted
+func (oi *ObjectIntern) DeleteByValSz(obj string) (bool, error) {
+	var addr gos.ObjAddr
+	var ok bool
+
+	// acquire read lock
+	oi.RLock()
+
+	// try to find the object in the index
+	addr, ok = oi.ObjIndex[obj]
+	if !ok {
+		oi.RUnlock()
+		return false, fmt.Errorf("Could not find object in store")
+	}
+
+	oi.RUnlock()
+	return oi.Delete(addr)
+}
+
 // RefCnt checks if the object identified by objAddr exists in the
 // object store and returns its current reference count and nil on success.
 // On failure it returns 0 and an error, which means the object was not found

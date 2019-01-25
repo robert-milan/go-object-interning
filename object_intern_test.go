@@ -152,11 +152,15 @@ func TestRefCount(t *testing.T) {
 }
 
 func TestAddOrGetAndDelete25(t *testing.T) {
-	testAddOrGetAndDelete(t, 25, 501, nil)
+	cnf := NewConfig()
+	cnf.CompressionType = SHOCO
+	testAddOrGetAndDelete(t, 25, 501, cnf)
 }
 
 func TestAddOrGetAndDelete250(t *testing.T) {
-	testAddOrGetAndDelete(t, 250, 501, nil)
+	cnf := NewConfig()
+	cnf.CompressionType = SHOCO
+	testAddOrGetAndDelete(t, 250, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteNoCprsn25(t *testing.T) {
@@ -224,6 +228,179 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf *ObjectIn
 		ok, err := oi.Delete(addr)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", addr)
+			return
+		}
+		if !ok {
+			t.Error("Ok should be true since object should have been deleted")
+			return
+		}
+	}
+
+}
+
+func TestAddOrGetAndDeleteByVal25(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = SHOCO
+	testAddOrGetAndDeleteByVal(t, 25, 501, cnf)
+}
+
+func TestAddOrGetAndDeleteByVal250(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = SHOCO
+	testAddOrGetAndDeleteByVal(t, 250, 501, cnf)
+}
+
+func TestAddOrGetAndDeleteByValNoCprsn25(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = NOCPRSN
+	testAddOrGetAndDeleteByVal(t, 25, 501, cnf)
+}
+
+func TestAddOrGetAndDeleteByValNoCprsn250(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = NOCPRSN
+	testAddOrGetAndDeleteByVal(t, 250, 501, cnf)
+}
+
+func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf *ObjectInternConfig) {
+	oi := NewObjectIntern(cnf)
+
+	// slice to store addresses
+	addrs := make([]uintptr, 0)
+	// generate numKeys random strings of keySize length
+	originalSzs := make([]string, 0)
+	// also generate compressed versions stored in []byte
+	decompBytes := make([][]byte, 0)
+	for i := 0; i < numKeys; i++ {
+		sz := randStringBytesMaskImprSrc(keySize)
+		originalSzs = append(originalSzs, sz)
+		decompBytes = append(decompBytes, []byte(sz))
+	}
+
+	// reference count should be 1 after this finishes
+	for _, sz := range originalSzs {
+		addr, err := oi.AddOrGet([]byte(sz))
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", []byte(sz))
+			return
+		}
+		// add addr to addrs
+		addrs = append(addrs, addr)
+	}
+
+	// reference count should be 2 after this finishes
+	for _, sz := range originalSzs {
+		_, err := oi.AddOrGet([]byte(sz))
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", []byte(sz))
+			return
+		}
+	}
+
+	// decrease reference count by 1, it should now be 1 again
+	for _, compObj := range decompBytes {
+		ok, err := oi.DeleteByVal(compObj)
+		if err != nil {
+			t.Error("Failed to delete object (possibly not found in the object store): ", compObj)
+			return
+		}
+		if ok {
+			t.Error("Ok should be false since reference count is at 1 now")
+			return
+		}
+	}
+
+	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
+	for _, compObj := range decompBytes {
+		ok, err := oi.DeleteByVal(compObj)
+		if err != nil {
+			t.Error("Failed to delete object (possibly not found in the object store): ", compObj)
+			return
+		}
+		if !ok {
+			t.Error("Ok should be true since object should have been deleted")
+			return
+		}
+	}
+
+}
+
+func TestAddOrGetAndDeleteByValSz25(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = SHOCO
+	testAddOrGetAndDeleteByValSz(t, 25, 501, cnf)
+}
+
+func TestAddOrGetAndDeleteByValSz250(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = SHOCO
+	testAddOrGetAndDeleteByValSz(t, 250, 501, cnf)
+}
+
+func TestAddOrGetAndDeleteByValSzNoCprsn25(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = NOCPRSN
+	testAddOrGetAndDeleteByValSz(t, 25, 501, cnf)
+}
+
+func TestAddOrGetAndDeleteByValSzNoCprsn250(t *testing.T) {
+	cnf := NewConfig()
+	cnf.CompressionType = NOCPRSN
+	testAddOrGetAndDeleteByValSz(t, 250, 501, cnf)
+}
+
+func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf *ObjectInternConfig) {
+	oi := NewObjectIntern(cnf)
+
+	// slice to store addresses
+	addrs := make([]uintptr, 0)
+	// generate numKeys random strings of keySize length
+	originalSzs := make([]string, 0)
+	compSzs := make([]string, 0)
+	for i := 0; i < numKeys; i++ {
+		sz := randStringBytesMaskImprSrc(keySize)
+		originalSzs = append(originalSzs, sz)
+		compSzs = append(compSzs, string(oi.compress([]byte(sz))))
+	}
+
+	// reference count should be 1 after this finishes
+	for _, sz := range originalSzs {
+		addr, err := oi.AddOrGet([]byte(sz))
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", []byte(sz))
+			return
+		}
+		// add addr to addrs
+		addrs = append(addrs, addr)
+	}
+
+	// reference count should be 2 after this finishes
+	for _, sz := range originalSzs {
+		_, err := oi.AddOrGet([]byte(sz))
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", []byte(sz))
+			return
+		}
+	}
+
+	// decrease reference count by 1, it should now be 1 again
+	for _, sz := range compSzs {
+		ok, err := oi.DeleteByValSz(sz)
+		if err != nil {
+			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
+			return
+		}
+		if ok {
+			t.Error("Ok should be false since reference count is at 1 now")
+			return
+		}
+	}
+
+	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
+	for _, sz := range compSzs {
+		ok, err := oi.DeleteByValSz(sz)
+		if err != nil {
+			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
 			return
 		}
 		if !ok {
