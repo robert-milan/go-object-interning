@@ -25,7 +25,7 @@ type ObjectIntern struct {
 // nil if you want to use the default configuration, otherwise
 // pass in a custom configuration
 func NewObjectIntern(c *ObjectInternConfig) *ObjectIntern {
-	oi := &ObjectIntern{
+	oi := ObjectIntern{
 		conf:     Config,
 		Store:    gos.NewObjectStore(100),
 		ObjIndex: make(map[string]uintptr),
@@ -37,23 +37,18 @@ func NewObjectIntern(c *ObjectInternConfig) *ObjectIntern {
 	// set compression and decompression functions
 	switch oi.conf.CompressionType {
 	case SHOCO:
-		oi.compress = func(in []byte) []byte {
-			return shoco.Compress(in)
-		}
-		oi.decompress = func(in []byte) ([]byte, error) {
-			b, err := shoco.Decompress(in)
-			return b, err
-		}
+		oi.compress = shoco.Compress
+		oi.decompress = shoco.Decompress
+	case SHOCODICT:
+		panic("Compression SHOCODICT not implemented yet")
+	case NOCPRSN:
+		oi.compress = func(in []byte) []byte { return in }
+		oi.decompress = func(in []byte) ([]byte, error) { return in, nil }
 	default:
-		oi.compress = func(in []byte) []byte {
-			return in
-		}
-		oi.decompress = func(in []byte) ([]byte, error) {
-			return in, nil
-		}
+		panic(fmt.Sprintf("Compression %d not recognized", oi.conf.CompressionType))
 	}
 
-	return oi
+	return &oi
 }
 
 // CompressionFunc returns the current compression func used by the library
