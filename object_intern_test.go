@@ -153,25 +153,25 @@ func TestRefCount(t *testing.T) {
 
 func TestAddOrGetAndDelete25(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	testAddOrGetAndDelete(t, 25, 501, cnf)
 }
 
 func TestAddOrGetAndDelete250(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	testAddOrGetAndDelete(t, 250, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteNoCprsn25(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	testAddOrGetAndDelete(t, 25, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteNoCprsn250(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	testAddOrGetAndDelete(t, 250, 501, cnf)
 }
 
@@ -240,25 +240,25 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf *ObjectIn
 
 func TestAddOrGetAndDeleteByVal25(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	testAddOrGetAndDeleteByVal(t, 25, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteByVal250(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	testAddOrGetAndDeleteByVal(t, 250, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteByValNoCprsn25(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	testAddOrGetAndDeleteByVal(t, 25, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteByValNoCprsn250(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	testAddOrGetAndDeleteByVal(t, 250, 501, cnf)
 }
 
@@ -327,25 +327,25 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf *Obj
 
 func TestAddOrGetAndDeleteByValSz25(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	testAddOrGetAndDeleteByValSz(t, 25, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteByValSz250(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	testAddOrGetAndDeleteByValSz(t, 250, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteByValSzNoCprsn25(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	testAddOrGetAndDeleteByValSz(t, 25, 501, cnf)
 }
 
 func TestAddOrGetAndDeleteByValSzNoCprsn250(t *testing.T) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	testAddOrGetAndDeleteByValSz(t, 250, 501, cnf)
 }
 
@@ -804,25 +804,25 @@ func benchmarkAddOrGet(b *testing.B, num int) {
 
 func BenchmarkCompressShoco(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	benchmarkCompress(b, cnf)
 }
 
 func BenchmarkDecompressShoco(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	benchmarkDecompress(b, cnf)
 }
 
 func BenchmarkCompressNone(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	benchmarkCompress(b, cnf)
 }
 
 func BenchmarkDecompressNone(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	benchmarkDecompress(b, cnf)
 }
 
@@ -853,25 +853,25 @@ func benchmarkDecompress(b *testing.B, cnf *ObjectInternConfig) {
 
 func BenchmarkCompressSzShoco(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	benchmarkCompressSz(b, cnf, "testingString")
 }
 
 func BenchmarkDecompressSzShoco(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = SHOCO
+	cnf.Compression = Shoco
 	benchmarkDecompressSz(b, cnf, "testingString")
 }
 
 func BenchmarkCompressSzNone(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	benchmarkCompressSz(b, cnf, "testingString")
 }
 
 func BenchmarkDecompressSzNone(b *testing.B) {
 	cnf := NewConfig()
-	cnf.CompressionType = NOCPRSN
+	cnf.Compression = None
 	benchmarkDecompressSz(b, cnf, "testingString")
 }
 

@@ -25,7 +25,7 @@ type ObjectIntern struct {
 // nil if you want to use the default configuration, otherwise
 // pass in a custom configuration
 func NewObjectIntern(c *ObjectInternConfig) *ObjectIntern {
-	oi := &ObjectIntern{
+	oi := ObjectIntern{
 		conf:     Config,
 		Store:    gos.NewObjectStore(100),
 		ObjIndex: make(map[string]uintptr),
@@ -35,25 +35,20 @@ func NewObjectIntern(c *ObjectInternConfig) *ObjectIntern {
 	}
 
 	// set compression and decompression functions
-	switch oi.conf.CompressionType {
-	case SHOCO:
-		oi.compress = func(in []byte) []byte {
-			return shoco.Compress(in)
-		}
-		oi.decompress = func(in []byte) ([]byte, error) {
-			b, err := shoco.Decompress(in)
-			return b, err
-		}
+	switch oi.conf.Compression {
+	case Shoco:
+		oi.compress = shoco.Compress
+		oi.decompress = shoco.Decompress
+	case ShocoDict:
+		panic("Compression ShocoDict not implemented yet")
+	case None:
+		oi.compress = func(in []byte) []byte { return in }
+		oi.decompress = func(in []byte) ([]byte, error) { return in, nil }
 	default:
-		oi.compress = func(in []byte) []byte {
-			return in
-		}
-		oi.decompress = func(in []byte) ([]byte, error) {
-			return in, nil
-		}
+		panic(fmt.Sprintf("Compression %d not recognized", oi.conf.Compression))
 	}
 
-	return oi
+	return &oi
 }
 
 // CompressionFunc returns the current compression func used by the library
@@ -83,7 +78,7 @@ func (oi *ObjectIntern) Decompress(in []byte) ([]byte, error) {
 // It is important to keep in mind that not all values can be compressed,
 // so this may at times return the original value
 func (oi *ObjectIntern) CompressSz(in string) string {
-	if oi.conf.CompressionType == NOCPRSN {
+	if oi.conf.Compression == None {
 		return in
 	}
 	return string(oi.compress([]byte(in)))
@@ -92,7 +87,7 @@ func (oi *ObjectIntern) CompressSz(in string) string {
 // DecompressSz returns a decompressed version of string as a string and nil upon success.
 // On failure it returns in and an error.
 func (oi *ObjectIntern) DecompressSz(in string) (string, error) {
-	if oi.conf.CompressionType == NOCPRSN {
+	if oi.conf.Compression == None {
 		return in, nil
 	}
 	b, err := oi.decompress([]byte(in))
@@ -116,7 +111,7 @@ func (oi *ObjectIntern) AddOrGet(obj []byte) (uintptr, error) {
 	// compress the object before searching for it
 	objComp := oi.compress(obj)
 	// if compression is turned off we don't want to work on the original
-	if oi.conf.CompressionType == NOCPRSN {
+	if oi.conf.Compression == None {
 		objComp := make([]byte, len(obj))
 		copy(objComp, obj)
 	}
@@ -329,7 +324,7 @@ func (oi *ObjectIntern) DeleteByVal(obj []byte) (bool, error) {
 
 // DeleteByValSzNoCprsn decrements the reference count of an object identified by its string representation.
 //
-// WARNING: This method only works if compression is turned off (NOCPRSN), or you pass in a compressed
+// WARNING: This method only works if compression is turned off (None), or you pass in a compressed
 // version of the string/object
 //
 // Possible return values are as follows:
