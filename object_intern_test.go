@@ -67,7 +67,7 @@ func TestAddOrGet(t *testing.T) {
 	results := make(map[string]uintptr, 0)
 
 	for _, b := range testBytes {
-		ret, err := oi.AddOrGet(b)
+		ret, err := oi.AddOrGetCompressed(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -78,7 +78,7 @@ func TestAddOrGet(t *testing.T) {
 
 	// increase reference count to 2
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b)
+		addr, err := oi.AddOrGetCompressed(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -92,7 +92,7 @@ func TestAddOrGet(t *testing.T) {
 
 	// increase reference count to 3
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b)
+		addr, err := oi.AddOrGetCompressed(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -118,7 +118,7 @@ func TestRefCount(t *testing.T) {
 	results := make(map[string]uintptr, 0)
 
 	for _, b := range testBytes {
-		ret, err := oi.AddOrGet(b)
+		ret, err := oi.AddOrGetCompressed(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -130,7 +130,7 @@ func TestRefCount(t *testing.T) {
 	// increase reference count to 10
 	for i := 0; i < 9; i++ {
 		for _, b := range testBytes {
-			_, err := oi.AddOrGet(b)
+			_, err := oi.AddOrGetCompressed(b)
 			if err != nil {
 				t.Error("Failed to AddOrGet: ", b)
 				return
@@ -192,7 +192,7 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf *ObjectIn
 
 	// reference count should be 1 after this finishes
 	for _, sz := range originalSzs {
-		addr, err := oi.AddOrGet([]byte(sz))
+		addr, err := oi.AddOrGetCompressed([]byte(sz))
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -203,7 +203,7 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf *ObjectIn
 
 	// reference count should be 2 after this finishes
 	for _, sz := range originalSzs {
-		_, err := oi.AddOrGet([]byte(sz))
+		_, err := oi.AddOrGetCompressed([]byte(sz))
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -279,7 +279,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf *Obj
 
 	// reference count should be 1 after this finishes
 	for _, sz := range originalSzs {
-		addr, err := oi.AddOrGet([]byte(sz))
+		addr, err := oi.AddOrGetCompressed([]byte(sz))
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -290,7 +290,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf *Obj
 
 	// reference count should be 2 after this finishes
 	for _, sz := range originalSzs {
-		_, err := oi.AddOrGet([]byte(sz))
+		_, err := oi.AddOrGetCompressed([]byte(sz))
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -299,7 +299,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf *Obj
 
 	// decrease reference count by 1, it should now be 1 again
 	for _, compObj := range decompBytes {
-		ok, err := oi.DeleteByVal(compObj)
+		ok, err := oi.DeleteByValCompressed(compObj)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", compObj)
 			return
@@ -312,7 +312,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf *Obj
 
 	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
 	for _, compObj := range decompBytes {
-		ok, err := oi.DeleteByVal(compObj)
+		ok, err := oi.DeleteByValCompressed(compObj)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", compObj)
 			return
@@ -365,7 +365,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf *O
 
 	// reference count should be 1 after this finishes
 	for _, sz := range originalSzs {
-		addr, err := oi.AddOrGet([]byte(sz))
+		addr, err := oi.AddOrGetCompressed([]byte(sz))
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -376,7 +376,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf *O
 
 	// reference count should be 2 after this finishes
 	for _, sz := range originalSzs {
-		_, err := oi.AddOrGet([]byte(sz))
+		_, err := oi.AddOrGetCompressed([]byte(sz))
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -385,7 +385,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf *O
 
 	// decrease reference count by 1, it should now be 1 again
 	for _, sz := range compSzs {
-		ok, err := oi.DeleteByValSz(sz)
+		ok, err := oi.DeleteByValString(sz)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
 			return
@@ -398,7 +398,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf *O
 
 	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
 	for _, sz := range compSzs {
-		ok, err := oi.DeleteByValSz(sz)
+		ok, err := oi.DeleteByValString(sz)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
 			return
@@ -416,7 +416,7 @@ func TestObjBytes(t *testing.T) {
 	objAddrs := make([]uintptr, 0)
 
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b)
+		addr, err := oi.AddOrGetCompressed(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -442,7 +442,7 @@ func TestObjString(t *testing.T) {
 	objAddrs := make([]uintptr, 0)
 
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b)
+		addr, err := oi.AddOrGetCompressed(b)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -492,8 +492,8 @@ func TestCompressSzDecompressSz(t *testing.T) {
 	testResults := make([]string, 0)
 
 	for _, sz := range testStrings {
-		cSz := oi.CompressSz(sz)
-		dSz, err := oi.DecompressSz(cSz)
+		cSz := oi.CompressString(sz)
+		dSz, err := oi.DecompressString(cSz)
 		if err != nil {
 			t.Error("Decompression failed for: ", cSz)
 			return
@@ -797,7 +797,7 @@ func benchmarkAddOrGet(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for _, obj := range data {
-			oi.AddOrGet(obj)
+			oi.AddOrGetCompressed(obj)
 		}
 	}
 }
@@ -882,18 +882,18 @@ func benchmarkCompressSz(b *testing.B, cnf *ObjectInternConfig, sz string) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.CompressSz(sz)
+		oi.CompressString(sz)
 	}
 }
 
 func benchmarkDecompressSz(b *testing.B, cnf *ObjectInternConfig, sz string) {
 	oi := NewObjectIntern(cnf)
-	comp := oi.CompressSz(sz)
+	comp := oi.CompressString(sz)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.DecompressSz(comp)
+		oi.DecompressString(comp)
 	}
 }
