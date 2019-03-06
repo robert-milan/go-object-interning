@@ -802,6 +802,60 @@ func benchmarkAddOrGet(b *testing.B, num int) {
 	}
 }
 
+func BenchmarkAddOrGetString10(b *testing.B) {
+	benchmarkAddOrGetString(b, 10)
+}
+
+func BenchmarkAddOrGetString100(b *testing.B) {
+	benchmarkAddOrGetString(b, 100)
+}
+
+func BenchmarkAddOrGetString1000(b *testing.B) {
+	benchmarkAddOrGetString(b, 1000)
+}
+
+func BenchmarkAddOrGetString10000(b *testing.B) {
+	benchmarkAddOrGetString(b, 10000)
+}
+
+func BenchmarkAddOrGetString100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 100000)
+}
+
+func BenchmarkAddOrGetString1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 1000000)
+}
+
+func BenchmarkAddOrGetString5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 5000000)
+}
+
+func benchmarkAddOrGetString(b *testing.B, num int) {
+	oi := NewObjectIntern(NewConfig())
+	data := make([][]byte, 0)
+	for i := 0; i < num; i++ {
+		data = append(data, []byte(fmt.Sprintf("%d", i)))
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for _, obj := range data {
+			oi.AddOrGetString(obj, true)
+		}
+	}
+}
+
 func BenchmarkCompressShoco(b *testing.B) {
 	cnf := NewConfig()
 	cnf.Compression = Shoco
