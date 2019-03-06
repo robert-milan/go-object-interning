@@ -505,34 +505,6 @@ func (oi *ObjectIntern) ObjString(objAddr uintptr) (string, error) {
 	return string(b[:len(b)-4]), nil
 }
 
-// SetString takes an object adress, a string header. If compression is turned on, this will return a non-interned
-// version of the data.
-// Upon success it sets the string to point at objAddr with the proper length set.
-// On failure it takes no action and returns false.
-func (oi *ObjectIntern) SetString(objAddr uintptr, StringHdr *reflect.StringHeader) bool {
-	oi.RLock()
-	defer oi.RUnlock()
-
-	b, err := oi.Store.Get(objAddr)
-	if err != nil {
-		return false
-	}
-
-	if oi.conf.Compression != None {
-		objDecomp, err := oi.decompress(b[:len(b)-4])
-		if err != nil {
-			return false
-		}
-		StringHdr.Data = objAddr
-		StringHdr.Len = len(objDecomp)
-		return true
-	}
-
-	StringHdr.Data = objAddr
-	StringHdr.Len = len(b) - 4
-	return true
-}
-
 // Len takes a slice of object addresses, it assumes that compression is turned off.
 // Upon success it returns a slice of the lengths of all of the interned objects - the 4 trailing bytes for reference count, and true.
 // The returned slice indexes match the indexes of the slice of uintptrs.
