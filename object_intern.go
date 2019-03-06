@@ -94,40 +94,31 @@ func (oi *ObjectIntern) DecompressString(in string) (string, error) {
 }
 
 // AddOrGet finds or adds an object and returns its uintptr and nil upon success.
-// This method takes a []byte of the object, and two bools. If compressed
-// is set to true then we assume compression is being used. If safe is set to true
+// This method takes a []byte of the object, and a bool. If safe is set to true
 // then this method will create a copy of the []byte before performing any operations
 // that might modify the backing array.
 // On failure it returns 0 and an error
 //
 // If the object is found in the store its reference count is increased by 1.
 // If the object is added to the store its reference count is set to 1.
-func (oi *ObjectIntern) AddOrGet(obj []byte, compressed, safe bool) (uintptr, error) {
+func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 	var addr gos.ObjAddr
 	var ok bool
 	var err error
 	var objString string
-	var objComp []byte
 
-	// is the data supposed to be compressed?
-	if compressed {
-		// even so, is compression actually turned on, and do we need to be safe?
-		if oi.conf.Compression == None && safe {
-			// create a copy
-			objComp = make([]byte, len(obj))
-			copy(objComp, obj)
-		} else {
-			// if compression is turned on, this will return a new []byte
-			objComp = oi.compress(obj)
-		}
-	} else {
-		if safe {
-			// create a copy
-			objComp = make([]byte, len(obj))
-			copy(objComp, obj)
-		} else {
-			objComp = obj
-		}
+	objComp := obj
+
+	if oi.conf.Compression != None {
+		objComp = oi.compress(obj)
+	}
+
+	// the only case we need to handle specially is when compression
+	// is turned off and the user has requested that the operation be safe
+	if safe && oi.conf.Compression == None {
+		// create a copy so we don't modify the original []byte
+		objComp = make([]byte, len(obj))
+		copy(objComp, obj)
 	}
 
 	// string used for the index
@@ -170,43 +161,35 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, compressed, safe bool) (uintptr, er
 }
 
 // AddOrGetString finds or adds an object and then returns a string with its Data pointer set to the newly interned object and nil.
-// This method takes a []byte of the object, and two bools. If compressed
-// is set to true then we assume compression is being used. If safe is set to true
+// This method takes a []byte of the object, and a bool. If safe is set to true
 // then this method will create a copy of the []byte before performing any operations
-// that might modify the backing array.
+// that might modify the backing array. If compression is turned on this method returns
+// a decompressed version of the string, which means it does not use the interned data.
 // On failure it returns an empty string and an error
 //
 // If the object is found in the store its reference count is increased by 1.
 // If the object is added to the store its reference count is set to 1.
-func (oi *ObjectIntern) AddOrGetString(obj []byte, compressed, safe bool) (string, error) {
+func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 	var addr gos.ObjAddr
 	var ok bool
 	var err error
-	var objComp []byte
 
-	// is the data supposed to be compressed?
-	if compressed {
-		// even so, is compression actually turned on, and do we need to be safe?
-		if oi.conf.Compression == None && safe {
-			// create a copy
-			objComp = make([]byte, len(obj))
-			copy(objComp, obj)
-		} else {
-			// if compression is turned on, this will return a new []byte
-			objComp = oi.compress(obj)
-		}
-	} else {
-		if safe {
-			// create a copy
-			objComp = make([]byte, len(obj))
-			copy(objComp, obj)
-		} else {
-			objComp = obj
-		}
+	objComp := obj
+
+	if oi.conf.Compression != None {
+		objComp = oi.compress(obj)
+	}
+
+	// the only case we need to handle specially is when compression
+	// is turned off and the user has requested that the operation be safe
+	if safe && oi.conf.Compression == None {
+		// create a copy so we don't modify the original []byte
+		objComp = make([]byte, len(obj))
+		copy(objComp, obj)
 	}
 
 	// string used for the index
-	objString := string(obj)
+	objString := string(objComp)
 
 	// acquire lock
 	oi.Lock()
@@ -216,10 +199,15 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, compressed, safe bool) (strin
 	if ok {
 		// increment reference count by 1
 		(*(*uint32)(unsafe.Pointer(addr + uintptr(len(objComp)))))++
-		tmpString := objString
-		(*reflect.StringHeader)(unsafe.Pointer(&tmpString)).Data = addr
+		if oi.conf.Compression == None {
+			// set objString data to the object inside the object store
+			(*reflect.StringHeader)(unsafe.Pointer(&objString)).Data = addr
+		} else {
+			// don't want to return compressed data, so we create a string from the original object
+			objString = string(obj)
+		}
 		oi.Unlock()
-		return tmpString, nil
+		return objString, nil
 	}
 
 	// The object is not in the index therefore it is not in the store.
@@ -237,21 +225,20 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, compressed, safe bool) (strin
 	}
 
 	// set objString data to the object inside the object store
-	((*reflect.StringHeader)(unsafe.Pointer(&objString))).Data = addr
+	(*reflect.StringHeader)(unsafe.Pointer(&objString)).Data = addr
 
 	// add the object to the index
 	oi.ObjIndex[objString] = addr
 
-	tmpString := objString
-	(*reflect.StringHeader)(unsafe.Pointer(&tmpString)).Data = addr
-
 	oi.Unlock()
-	return tmpString, nil
+	if oi.conf.Compression != None {
+		// don't want to return compressed data, so we create a string from the original object
+		objString = string(obj)
+	}
+	return objString, nil
 }
 
 // GetPtrFromByte finds an interned object and returns its address as a uintptr.
-// If compressed is true the []byte will be compressed before attempting to find it
-// in the object store.
 // Upon failure it returns 0 and an error.
 //
 // This method is designed specifically to be used with map keys that are interned,
@@ -259,14 +246,15 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, compressed, safe bool) (strin
 // This method should be faster than iterating over a map (depending on the size of the map).
 // This is usually called directly before deleting an interned map key from its map so that we
 // can properly decrement the reference count of that interned object.
-func (oi *ObjectIntern) GetPtrFromByte(obj []byte, compressed bool) (uintptr, error) {
+//
+// This method does not increase the reference count of the interned object.
+func (oi *ObjectIntern) GetPtrFromByte(obj []byte) (uintptr, error) {
 	var addr gos.ObjAddr
 	var ok bool
 	var objString string
 
-	if compressed {
-		objComp := oi.compress(obj)
-		objString = string(objComp)
+	if oi.conf.Compression != None {
+		objString = string(oi.compress(obj))
 	} else {
 		objString = string(obj)
 	}
@@ -286,11 +274,11 @@ func (oi *ObjectIntern) GetPtrFromByte(obj []byte, compressed bool) (uintptr, er
 }
 
 // GetStringFromPtr returns an interned version of a string stored at objAddr and nil.
-// If compressed is true it returns a non-interned string and nil.
+// If compression is turned on it returns a non-interned string and nil.
 // Upon failure it returns an empty string and an error.
 //
 // This method does not increase the reference count of the interned object.
-func (oi *ObjectIntern) GetStringFromPtr(objAddr uintptr, compressed bool) (string, error) {
+func (oi *ObjectIntern) GetStringFromPtr(objAddr uintptr) (string, error) {
 	oi.RLock()
 	defer oi.RUnlock()
 
@@ -299,14 +287,18 @@ func (oi *ObjectIntern) GetStringFromPtr(objAddr uintptr, compressed bool) (stri
 		return "", err
 	}
 
-	if compressed {
+	if oi.conf.Compression != None {
+		// get decompressed []byte after removing the trailing 4 bytes for the reference count
 		b, err = oi.decompress(b[:len(b)-4])
 		if err != nil {
 			return "", err
 		}
+		// because compression is turned on we can't just set string's Data to the address,
+		// we need to actually create a new string from the decompressed []byte
 		return string(b), nil
 	}
 
+	// since compression is turned off, we can simply use the uncompressed interned data for the string
 	var tmpString string
 	(*reflect.StringHeader)(unsafe.Pointer(&tmpString)).Data = objAddr
 
@@ -348,7 +340,7 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 		return false, nil
 	}
 
-	// if reference count is 1, delete the object and remove it from index
+	// if reference count is 1 or less, delete the object and remove it from index
 	// If one of these operations fails it is still safe to perform the other
 	// Once we get to this point we are just going to remove all traces of the object
 
@@ -373,8 +365,6 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 }
 
 // DeleteByByte decrements the reference count of an object identified by its value as a []byte.
-// If compressed is true the []byte will be compressed before attempting to find it in the object
-// store.
 // Possible return values are as follows:
 //
 // true, nil - reference count reached 0 and the object was removed from both the index
@@ -383,12 +373,12 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 // false, nil - reference count was decremented by 1 and no further action was taken.
 //
 // false, error - the object was not found in the object store or could not be deleted
-func (oi *ObjectIntern) DeleteByByte(obj []byte, compressed bool) (bool, error) {
+func (oi *ObjectIntern) DeleteByByte(obj []byte) (bool, error) {
 	var addr gos.ObjAddr
 	var ok bool
 	var objString string
 
-	if compressed {
+	if oi.conf.Compression != None {
 		objString = string(oi.compress(obj))
 	} else {
 		objString = string(obj)
@@ -409,8 +399,6 @@ func (oi *ObjectIntern) DeleteByByte(obj []byte, compressed bool) (bool, error) 
 }
 
 // DeleteByString decrements the reference count of an object identified by its string representation.
-// If compressed is true the string will be decompressed before attempting to find it in the object
-// store.
 //
 // Possible return values are as follows:
 //
@@ -420,16 +408,12 @@ func (oi *ObjectIntern) DeleteByByte(obj []byte, compressed bool) (bool, error) 
 // false, nil - reference count was decremented by 1 and no further action was taken.
 //
 // false, error - the object was not found in the object store or could not be deleted
-func (oi *ObjectIntern) DeleteByString(obj string, compressed bool) (bool, error) {
+func (oi *ObjectIntern) DeleteByString(obj string) (bool, error) {
 	var addr gos.ObjAddr
 	var ok bool
 
-	if compressed {
-		b, err := oi.decompress([]byte(obj))
-		if err != nil {
-			return false, err
-		}
-		obj = string(b)
+	if oi.conf.Compression != None {
+		obj = string(oi.compress([]byte(obj)))
 	}
 
 	// acquire read lock
@@ -468,12 +452,11 @@ func (oi *ObjectIntern) RefCnt(objAddr uintptr) (uint32, error) {
 // ObjBytes returns a []byte and nil on success.
 // On failure it returns nil and an error.
 //
-// If compression is used, this method does not use the interned data to create a []byte,
-// instead it allocates a new []byte.
-//
 // If compression is turned off, this will return a []byte slice with the backing array
 // set to the interned data.
 func (oi *ObjectIntern) ObjBytes(objAddr uintptr) ([]byte, error) {
+	var err error
+
 	oi.RLock()
 	defer oi.RUnlock()
 
@@ -481,12 +464,18 @@ func (oi *ObjectIntern) ObjBytes(objAddr uintptr) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// remove 4 trailing bytes for reference count and decompress
-	objDecomp, err := oi.decompress(b[:len(b)-4])
-	if err != nil {
-		return nil, err
+
+	if oi.conf.Compression != None {
+		// remove 4 trailing bytes for reference count and decompress
+		b, err = oi.decompress(b[:len(b)-4])
+		if err != nil {
+			return nil, err
+		}
+		return b, nil
 	}
-	return objDecomp, nil
+
+	// remove 4 trailing bytes for reference count
+	return b[:len(b)-4], nil
 }
 
 // ObjString returns a string and nil on success.
@@ -495,6 +484,8 @@ func (oi *ObjectIntern) ObjBytes(objAddr uintptr) ([]byte, error) {
 // This method does not use the interned data to create a string,
 // instead it allocates a new string.
 func (oi *ObjectIntern) ObjString(objAddr uintptr) (string, error) {
+	var err error
+
 	oi.RLock()
 	defer oi.RUnlock()
 
@@ -502,18 +493,23 @@ func (oi *ObjectIntern) ObjString(objAddr uintptr) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// remove 4 trailing bytes for reference count and decompress
-	objDecomp, err := oi.decompress(b[:len(b)-4])
-	if err != nil {
-		return "", err
+
+	if oi.conf.Compression != None {
+		// remove 4 trailing bytes for reference count and decompress
+		b, err = oi.decompress(b[:len(b)-4])
+		if err != nil {
+			return "", err
+		}
 	}
-	return string(objDecomp), nil
+
+	return string(b[:len(b)-4]), nil
 }
 
-// SetString takes an object adress, a string header, and a flag to determine whether or not compression is used.
+// SetString takes an object adress, a string header. If compression is turned on, this will return a non-interned
+// version of the data.
 // Upon success it sets the string to point at objAddr with the proper length set.
 // On failure it takes no action and returns false.
-func (oi *ObjectIntern) SetString(objAddr uintptr, StringHdr *reflect.StringHeader, compressed bool) bool {
+func (oi *ObjectIntern) SetString(objAddr uintptr, StringHdr *reflect.StringHeader) bool {
 	oi.RLock()
 	defer oi.RUnlock()
 
@@ -522,7 +518,7 @@ func (oi *ObjectIntern) SetString(objAddr uintptr, StringHdr *reflect.StringHead
 		return false
 	}
 
-	if compressed {
+	if oi.conf.Compression != None {
 		objDecomp, err := oi.decompress(b[:len(b)-4])
 		if err != nil {
 			return false

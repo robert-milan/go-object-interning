@@ -67,7 +67,7 @@ func TestAddOrGet(t *testing.T) {
 	results := make(map[string]uintptr, 0)
 
 	for _, b := range testBytes {
-		ret, err := oi.AddOrGet(b, true, true)
+		ret, err := oi.AddOrGet(b, true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -78,7 +78,7 @@ func TestAddOrGet(t *testing.T) {
 
 	// increase reference count to 2
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b, true, true)
+		addr, err := oi.AddOrGet(b, true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -92,7 +92,7 @@ func TestAddOrGet(t *testing.T) {
 
 	// increase reference count to 3
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b, true, true)
+		addr, err := oi.AddOrGet(b, true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -118,7 +118,7 @@ func TestRefCount(t *testing.T) {
 	results := make(map[string]uintptr, 0)
 
 	for _, b := range testBytes {
-		ret, err := oi.AddOrGet(b, true, true)
+		ret, err := oi.AddOrGet(b, true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -130,7 +130,7 @@ func TestRefCount(t *testing.T) {
 	// increase reference count to 10
 	for i := 0; i < 9; i++ {
 		for _, b := range testBytes {
-			_, err := oi.AddOrGet(b, true, true)
+			_, err := oi.AddOrGet(b, true)
 			if err != nil {
 				t.Error("Failed to AddOrGet: ", b)
 				return
@@ -192,7 +192,7 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf ObjectInt
 
 	// reference count should be 1 after this finishes
 	for _, sz := range originalSzs {
-		addr, err := oi.AddOrGet([]byte(sz), true, true)
+		addr, err := oi.AddOrGet([]byte(sz), true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -203,7 +203,7 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf ObjectInt
 
 	// reference count should be 2 after this finishes
 	for _, sz := range originalSzs {
-		_, err := oi.AddOrGet([]byte(sz), true, true)
+		_, err := oi.AddOrGet([]byte(sz), true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -279,7 +279,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf Obje
 
 	// reference count should be 1 after this finishes
 	for _, sz := range originalSzs {
-		addr, err := oi.AddOrGet([]byte(sz), true, true)
+		addr, err := oi.AddOrGet([]byte(sz), true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -290,7 +290,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf Obje
 
 	// reference count should be 2 after this finishes
 	for _, sz := range originalSzs {
-		_, err := oi.AddOrGet([]byte(sz), true, true)
+		_, err := oi.AddOrGet([]byte(sz), true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -299,7 +299,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf Obje
 
 	// decrease reference count by 1, it should now be 1 again
 	for _, compObj := range decompBytes {
-		ok, err := oi.DeleteByByte(compObj, true)
+		ok, err := oi.DeleteByByte(compObj)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", compObj)
 			return
@@ -312,7 +312,7 @@ func testAddOrGetAndDeleteByVal(t *testing.T, keySize int, numKeys int, cnf Obje
 
 	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
 	for _, compObj := range decompBytes {
-		ok, err := oi.DeleteByByte(compObj, true)
+		ok, err := oi.DeleteByByte(compObj)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", compObj)
 			return
@@ -365,7 +365,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 
 	// reference count should be 1 after this finishes
 	for _, sz := range originalSzs {
-		addr, err := oi.AddOrGet([]byte(sz), true, true)
+		addr, err := oi.AddOrGet([]byte(sz), true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -376,7 +376,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 
 	// reference count should be 2 after this finishes
 	for _, sz := range originalSzs {
-		_, err := oi.AddOrGet([]byte(sz), true, true)
+		_, err := oi.AddOrGet([]byte(sz), true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", []byte(sz))
 			return
@@ -385,7 +385,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 
 	// decrease reference count by 1, it should now be 1 again
 	for _, sz := range compSzs {
-		ok, err := oi.DeleteByString(sz, true)
+		ok, err := oi.DeleteByString(sz)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
 			return
@@ -398,7 +398,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 
 	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
 	for _, sz := range compSzs {
-		ok, err := oi.DeleteByString(sz, true)
+		ok, err := oi.DeleteByString(sz)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
 			return
@@ -416,7 +416,7 @@ func TestObjBytes(t *testing.T) {
 	objAddrs := make([]uintptr, 0)
 
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b, true, true)
+		addr, err := oi.AddOrGet(b, true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -442,7 +442,7 @@ func TestObjString(t *testing.T) {
 	objAddrs := make([]uintptr, 0)
 
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b, true, true)
+		addr, err := oi.AddOrGet(b, true)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -797,7 +797,7 @@ func benchmarkAddOrGet(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for _, obj := range data {
-			oi.AddOrGet(obj, true, true)
+			oi.AddOrGet(obj, true)
 		}
 	}
 }
