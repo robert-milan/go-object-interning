@@ -105,7 +105,7 @@ func TestAddOrGet(t *testing.T) {
 	}
 
 	// make sure all of these keys exist in the index
-	for k, v := range oi.ObjIndex {
+	for k, v := range oi.objIndex {
 		if v != results[k] {
 			t.Error("Results not found in index")
 			return
