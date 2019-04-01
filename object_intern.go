@@ -519,16 +519,26 @@ func (oi *ObjectIntern) Len(ptrs []uintptr) (retLn []int, all bool) {
 	return
 }
 
-func (oi *ObjectIntern) JoinStrings(nodes []uintptr) (string, error) {
-	lengths, complete := oi.Len(nodes)
-	if !complete {
-		return "", fmt.Errorf("Could not find object in store")
+// JoinStrings takes a slice of uintptr and returns a reconstructed string using sep
+// as the separator.
+func (oi *ObjectIntern) JoinStrings(nodes []uintptr, sep string) (string, error) {
+	if oi.conf.Compression != None {
+		return oi.joinStringsCompressed(nodes, sep)
 	}
 
-	var tmpString string
-	var bld strings.Builder
+	return oi.joinStringsUncompressed(nodes, sep)
+}
 
-	stringHeader := (*reflect.StringHeader)(unsafe.Pointer(&tmpString))
+func (oi *ObjectIntern) joinStringsCompressed(nodes []uintptr, sep string) (string, error) {
+	switch len(nodes) {
+	case 0:
+		return "", fmt.Errorf("Cannot create string from 0 length slice")
+	case 1:
+		single, err := oi.GetStringFromPtr(nodes[0])
+		return single, err
+	}
+
+	var bld strings.Builder
 
 	first, err := oi.GetStringFromPtr(nodes[0])
 	if err != nil {
@@ -536,10 +546,51 @@ func (oi *ObjectIntern) JoinStrings(nodes []uintptr) (string, error) {
 	}
 	bld.WriteString(first)
 
+	for _, nodePtr := range nodes[1:] {
+		tmpString, err := oi.GetStringFromPtr(nodePtr)
+		if err != nil {
+			return "", err
+		}
+		bld.WriteString(sep)
+		bld.WriteString(tmpString)
+	}
+
+	return bld.String(), nil
+}
+
+func (oi *ObjectIntern) joinStringsUncompressed(nodes []uintptr, sep string) (string, error) {
+	switch len(nodes) {
+	case 0:
+		return "", fmt.Errorf("Cannot create string from 0 length slice")
+	case 1:
+		single, err := oi.GetStringFromPtr(nodes[0])
+		return single, err
+	}
+
+	lengths, complete := oi.Len(nodes)
+	if !complete {
+		return "", fmt.Errorf("Could not find object in store")
+	}
+
+	totalSize := len(sep) * (len(nodes) - 1)
+	for _, length := range lengths {
+		totalSize += length
+	}
+
+	var tmpString string
+	var bld strings.Builder
+	bld.Grow(totalSize)
+
+	stringHeader := (*reflect.StringHeader)(unsafe.Pointer(&tmpString))
+
+	stringHeader.Data = nodes[0]
+	stringHeader.Len = lengths[0]
+	bld.WriteString(tmpString)
+
 	for idx, nodePtr := range nodes[1:] {
 		stringHeader.Data = nodePtr
 		stringHeader.Len = lengths[idx+1]
-		bld.WriteString(".")
+		bld.WriteString(sep)
 		bld.WriteString(tmpString)
 	}
 
