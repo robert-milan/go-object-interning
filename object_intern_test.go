@@ -251,7 +251,7 @@ func TestJoinStringsUncompressed(t *testing.T) {
 }
 
 func testJoinStrings(t *testing.T, cnf ObjectInternConfig) {
-	oi := NewObjectIntern(NewConfig())
+	oi := NewObjectIntern(cnf)
 
 	addrs := make([]uintptr, 0)
 	for _, tmpBytes := range testBytes {
