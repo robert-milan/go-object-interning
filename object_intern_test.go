@@ -105,7 +105,7 @@ func TestAddOrGet(t *testing.T) {
 	}
 
 	// make sure all of these keys exist in the index
-	for k, v := range oi.ObjIndex {
+	for k, v := range oi.objIndex {
 		if v != results[k] {
 			t.Error("Results not found in index")
 			return
@@ -236,6 +236,41 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf ObjectInt
 		}
 	}
 
+}
+
+func TestJoinStringsCompressed(t *testing.T) {
+	cnf := NewConfig()
+	cnf.Compression = Shoco
+	testJoinStrings(t, cnf)
+}
+
+func TestJoinStringsUncompressed(t *testing.T) {
+	cnf := NewConfig()
+	cnf.Compression = None
+	testJoinStrings(t, cnf)
+}
+
+func testJoinStrings(t *testing.T, cnf ObjectInternConfig) {
+	oi := NewObjectIntern(cnf)
+
+	addrs := make([]uintptr, 0)
+	for _, tmpBytes := range testBytes {
+		addr, err := oi.AddOrGet(tmpBytes, true)
+		if err != nil {
+			t.Error("Failed to add object to object store")
+		}
+		addrs = append(addrs, addr)
+	}
+
+	expected := "SmallString.LongerString.AnEvenLongerString.metric.root.server.servername1234.servername4321.servername91FFXX.AndTheLongestStringWeDealWithWithEvenASmallAmountOfSpaceMoreToGetUsOverTheGiganticLimitOfStuff"
+
+	joinedString, err := oi.JoinStrings(addrs, ".")
+	if err != nil {
+		t.Error(err)
+	}
+	if joinedString != expected {
+		t.Errorf("Expected: %s\nActual: %s\n", expected, joinedString)
+	}
 }
 
 func TestAddOrGetAndDeleteByVal25(t *testing.T) {
