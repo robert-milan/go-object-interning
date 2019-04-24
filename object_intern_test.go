@@ -238,6 +238,24 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf ObjectInt
 
 }
 
+func TestMemStatsPerPool(t *testing.T) {
+	oi := NewObjectIntern(NewConfig())
+
+	addrs := make([]uintptr, 0)
+	for _, tmpBytes := range testBytes {
+		addr, err := oi.AddOrGet(tmpBytes, true)
+		if err != nil {
+			t.Error("Failed to add object to object store")
+		}
+		addrs = append(addrs, addr)
+	}
+
+	m := oi.MemStatsPerPool()
+	for _, s := range m {
+		t.Logf("ObjectSize: %d\nMemUsed: %d\n\n", s.ObjSize, s.MemUsed)
+	}
+}
+
 func TestJoinStringsCompressed(t *testing.T) {
 	cnf := NewConfig()
 	cnf.Compression = Shoco

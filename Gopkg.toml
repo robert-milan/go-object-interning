@@ -27,7 +27,7 @@
 
 [[constraint]]
   branch = "master"
-  name = "github.com/replay/go-generic-object-store"
+  name = "github.com/grafana/go-generic-object-store"
 
 [[constraint]]
   branch = "master"
