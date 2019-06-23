@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 	"unsafe"
@@ -63,11 +64,27 @@ func randStringBytesMaskImprSrc(n int) string {
 }
 
 func TestAddOrGet(t *testing.T) {
-	oi := NewObjectIntern(NewConfig())
+	testAddOrGet(t, true, false)
+}
+
+func TestAddOrGetUnsafe(t *testing.T) {
+	testAddOrGet(t, false, false)
+}
+
+func TestAddOrGetCompressed(t *testing.T) {
+	testAddOrGet(t, true, true)
+}
+
+func testAddOrGet(t *testing.T, safe bool, compress bool) {
+	c := NewConfig()
+	if compress {
+		c.Compression = Shoco
+	}
+	oi := NewObjectIntern(c)
 	results := make(map[string]uintptr, 0)
 
 	for _, b := range testBytes {
-		ret, err := oi.AddOrGet(b, true)
+		ret, err := oi.AddOrGet(b, safe)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -78,7 +95,7 @@ func TestAddOrGet(t *testing.T) {
 
 	// increase reference count to 2
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b, true)
+		addr, err := oi.AddOrGet(b, safe)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -92,7 +109,7 @@ func TestAddOrGet(t *testing.T) {
 
 	// increase reference count to 3
 	for _, b := range testBytes {
-		addr, err := oi.AddOrGet(b, true)
+		addr, err := oi.AddOrGet(b, safe)
 		if err != nil {
 			t.Error("Failed to AddOrGet: ", b)
 			return
@@ -111,6 +128,133 @@ func TestAddOrGet(t *testing.T) {
 			return
 		}
 	}
+}
+
+func TestAddOrGetString(t *testing.T) {
+	testAddOrGetString(t, true, false)
+}
+
+func TestAddOrGetStringUnsafe(t *testing.T) {
+	testAddOrGetString(t, false, false)
+}
+
+func TestAddOrGetStringCompressed(t *testing.T) {
+	testAddOrGetString(t, true, true)
+}
+
+func testAddOrGetString(t *testing.T, safe bool, compress bool) {
+	c := NewConfig()
+	if compress {
+		c.Compression = Shoco
+	}
+	oi := NewObjectIntern(c)
+	results := make(map[string]uintptr, 0)
+	results2 := make(map[string]uintptr, 0)
+	resultStrings := make(map[string]string, 0)
+	resultStrings2 := make(map[string]string, 0)
+
+	for _, s := range testStrings {
+		retStr, err := oi.AddOrGetString([]byte(s), safe)
+		if err != nil {
+			t.Error("Failed to AddOrGetString: ", s)
+			return
+		}
+		resultStrings[s] = retStr
+
+		addr, err := oi.GetPtrFromByte([]byte(s))
+		if err != nil {
+			t.Error("Failed to GetPtrFromByte: ", s)
+			return
+		}
+		results[s] = addr
+	}
+
+	// increase reference count to 2
+	for _, s := range testStrings {
+		retStr, err := oi.AddOrGetString([]byte(s), safe)
+		if err != nil {
+			t.Error("Failed to AddOrGetString: ", s)
+			return
+		}
+		resultStrings2[s] = retStr
+
+		addr, err := oi.GetPtrFromByte([]byte(s))
+		if err != nil {
+			t.Error("Failed to GetPtrFromByte: ", s)
+			return
+		}
+
+		results2[s] = addr
+
+		refCnt := *(*uint32)(unsafe.Pointer(addr + uintptr(len(oi.compress([]byte(s))))))
+		if refCnt != 2 {
+			t.Errorf("Reference count should be 2, instead found %d\n", refCnt)
+			return
+		}
+	}
+
+	// these should be equal
+	if !reflect.DeepEqual(results, results2) {
+		t.Error("Pointer addresses are not equal")
+		return
+	}
+
+	// uncompressed version
+	if !compress {
+
+		// make sure they are in the object index
+		for k, v := range oi.objIndex {
+			if v != results[k] {
+				t.Error("Results not found in index")
+				return
+			}
+		}
+
+		// now compare the string data pointers, they should match
+		for k, v := range resultStrings {
+			dataPointer := (*reflect.StringHeader)(unsafe.Pointer(&v)).Data
+
+			str2 := resultStrings2[k]
+			dataPointer2 := (*reflect.StringHeader)(unsafe.Pointer(&str2)).Data
+
+			if dataPointer != dataPointer2 {
+				t.Error("Uintptr mismatch for: ", k)
+				return
+			}
+		}
+
+		// return so we don't run the compressed version checks
+		return
+	}
+
+	// compressed version
+
+	// make sure they are in the object index
+	for k, v := range oi.objIndex {
+		dcmp, err := oi.decompress([]byte(k))
+		if err != nil {
+			t.Error("Failed to decompress string")
+			return
+		}
+		if v != results[string(dcmp)] {
+			t.Error("Results not found in index")
+			return
+		}
+	}
+
+	// now compare the string data pointers, they should NOT match
+	for k, v := range resultStrings {
+		dataPointer := (*reflect.StringHeader)(unsafe.Pointer(&v)).Data
+
+		str2 := resultStrings2[k]
+		dataPointer2 := (*reflect.StringHeader)(unsafe.Pointer(&str2)).Data
+
+		if dataPointer == dataPointer2 {
+			t.Error("Uintptrs should not match for compressed data: ", k)
+			return
+		}
+	}
+
 }
 
 func TestRefCount(t *testing.T) {
@@ -285,9 +429,27 @@ func testJoinStrings(t *testing.T, cnf ObjectInternConfig) {
 	joinedString, err := oi.JoinStrings(addrs, ".")
 	if err != nil {
 		t.Error(err)
+		return
 	}
 	if joinedString != expected {
 		t.Errorf("Expected: %s\nActual: %s\n", expected, joinedString)
+		return
+	}
+
+	joinedString, err = oi.JoinStrings([]uintptr{}, ".")
+	if err == nil {
+		t.Error("We should have an error here")
+		return
+	}
+
+	joinedString, err = oi.JoinStrings([]uintptr{addrs[0]}, ".")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if joinedString != string(testBytes[0]) {
+		t.Errorf("Expected: %s\nActual: %s\n", string(testBytes[0]), joinedString)
+		return
 	}
 }
 
@@ -463,7 +625,20 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 }
 
 func TestObjBytes(t *testing.T) {
-	oi := NewObjectIntern(NewConfig())
+	testObjBytes(t, false)
+}
+
+func TestObjBytesCompressed(t *testing.T) {
+	testObjBytes(t, true)
+}
+
+func testObjBytes(t *testing.T, compress bool) {
+	c := NewConfig()
+	if compress {
+		c.Compression = Shoco
+	}
+	oi := NewObjectIntern(c)
+
 	objAddrs := make([]uintptr, 0)
 
 	for _, b := range testBytes {
@@ -489,7 +664,20 @@ func TestObjBytes(t *testing.T) {
 }
 
 func TestObjString(t *testing.T) {
-	oi := NewObjectIntern(NewConfig())
+	testObjString(t, false)
+}
+
+func TestObjStringCompressed(t *testing.T) {
+	testObjString(t, true)
+}
+
+func testObjString(t *testing.T, compress bool) {
+	c := NewConfig()
+	if compress {
+		c.Compression = Shoco
+	}
+	oi := NewObjectIntern(c)
+
 	objAddrs := make([]uintptr, 0)
 
 	for _, b := range testBytes {
