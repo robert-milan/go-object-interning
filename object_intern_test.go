@@ -409,11 +409,9 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 	addrs := make([]uintptr, 0)
 	// generate numKeys random strings of keySize length
 	originalSzs := make([]string, 0)
-	compSzs := make([]string, 0)
 	for i := 0; i < numKeys; i++ {
 		sz := randStringBytesMaskImprSrc(keySize)
 		originalSzs = append(originalSzs, sz)
-		compSzs = append(compSzs, string(oi.compress([]byte(sz))))
 	}
 
 	// reference count should be 1 after this finishes
@@ -437,7 +435,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 	}
 
 	// decrease reference count by 1, it should now be 1 again
-	for _, sz := range compSzs {
+	for _, sz := range originalSzs {
 		ok, err := oi.DeleteByString(sz)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
@@ -450,7 +448,7 @@ func testAddOrGetAndDeleteByValSz(t *testing.T, keySize int, numKeys int, cnf Ob
 	}
 
 	// decrease reference count by 1, now objects should be deleted (slabs are deleted as well)
-	for _, sz := range compSzs {
+	for _, sz := range originalSzs {
 		ok, err := oi.DeleteByString(sz)
 		if err != nil {
 			t.Error("Failed to delete object (possibly not found in the object store): ", sz)
@@ -562,287 +560,130 @@ func TestCompressSzDecompressSz(t *testing.T) {
 	}
 }
 
-func BenchmarkMapSzLookup10(b *testing.B) {
-	benchmarkMapSzLookup(b, 10)
+func BenchmarkAddOrGetCompressed10(b *testing.B) {
+	benchmarkAddOrGet(b, 10, true, true)
 }
 
-func BenchmarkMapSzLookup100(b *testing.B) {
-	benchmarkMapSzLookup(b, 100)
+func BenchmarkAddOrGetCompressed100(b *testing.B) {
+	benchmarkAddOrGet(b, 100, true, true)
 }
 
-func BenchmarkMapSzLookup1000(b *testing.B) {
-	benchmarkMapSzLookup(b, 1000)
+func BenchmarkAddOrGetCompressed1000(b *testing.B) {
+	benchmarkAddOrGet(b, 1000, true, true)
 }
 
-func BenchmarkMapSzLookup10000(b *testing.B) {
-	benchmarkMapSzLookup(b, 10000)
+func BenchmarkAddOrGetCompressed10000(b *testing.B) {
+	benchmarkAddOrGet(b, 10000, true, true)
 }
 
-func BenchmarkMapSzLookup100000(b *testing.B) {
+func BenchmarkAddOrGetCompressed100000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapSzLookup(b, 100000)
+	benchmarkAddOrGet(b, 100000, true, true)
 }
 
-func BenchmarkMapSzLookup1000000(b *testing.B) {
+func BenchmarkAddOrGetCompressed1000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapSzLookup(b, 1000000)
+	benchmarkAddOrGet(b, 1000000, true, true)
 }
 
-func BenchmarkMapSzLookup5000000(b *testing.B) {
+func BenchmarkAddOrGetCompressed5000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapSzLookup(b, 5000000)
+	benchmarkAddOrGet(b, 5000000, true, true)
 }
 
-func benchmarkMapSzLookup(b *testing.B, num int) {
-	index := make(map[string]uintptr)
-	keys := make([]string, 0)
-	vals := make([]uintptr, 0)
-	for i := 0; i < num; i++ {
-		key := fmt.Sprintf("%d", i)
-		keys = append(keys, key)
-		vals = append(vals, uintptr(i))
-		index[key] = vals[i]
-
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for j, key := range keys {
-			val := index[key]
-			if val != vals[j] {
-				b.Error("Value from map does not match value in slice")
-				return
-			}
-		}
-	}
+func BenchmarkAddOrGetUnsafe10(b *testing.B) {
+	benchmarkAddOrGet(b, 10, false, false)
 }
 
-func BenchmarkMapSzInsert10(b *testing.B) {
-	benchmarkMapSzInsert(b, 10)
+func BenchmarkAddOrGetUnsafe100(b *testing.B) {
+	benchmarkAddOrGet(b, 100, false, false)
 }
 
-func BenchmarkMapSzInsert100(b *testing.B) {
-	benchmarkMapSzInsert(b, 100)
+func BenchmarkAddOrGetUnsafe1000(b *testing.B) {
+	benchmarkAddOrGet(b, 1000, false, false)
 }
 
-func BenchmarkMapSzInsert1000(b *testing.B) {
-	benchmarkMapSzInsert(b, 1000)
+func BenchmarkAddOrGetUnsafe10000(b *testing.B) {
+	benchmarkAddOrGet(b, 10000, false, false)
 }
 
-func BenchmarkMapSzInsert10000(b *testing.B) {
-	benchmarkMapSzInsert(b, 10000)
-}
-
-func BenchmarkMapSzInsert100000(b *testing.B) {
+func BenchmarkAddOrGetUnsafe100000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapSzInsert(b, 100000)
+	benchmarkAddOrGet(b, 100000, false, false)
 }
 
-func BenchmarkMapSzInsert1000000(b *testing.B) {
+func BenchmarkAddOrGetUnsafe1000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapSzInsert(b, 1000000)
+	benchmarkAddOrGet(b, 1000000, false, false)
 }
 
-func BenchmarkMapSzInsert5000000(b *testing.B) {
+func BenchmarkAddOrGetUnsafe5000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapSzInsert(b, 5000000)
+	benchmarkAddOrGet(b, 5000000, false, false)
 }
 
-func benchmarkMapSzInsert(b *testing.B, num int) {
-	index := make(map[string]uintptr)
-	keys := make([]string, 0)
-	vals := make([]uintptr, 0)
-	for i := 0; i < num; i++ {
-		keys = append(keys, fmt.Sprintf("%d", i))
-		vals = append(vals, uintptr(i))
-
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for j, key := range keys {
-			index[key] = vals[j]
-		}
-	}
+func BenchmarkAddOrGetSafe10(b *testing.B) {
+	benchmarkAddOrGet(b, 10, false, true)
 }
 
-func BenchmarkMapIntLookup10(b *testing.B) {
-	benchmarkMapIntLookup(b, 10)
+func BenchmarkAddOrGetSafe100(b *testing.B) {
+	benchmarkAddOrGet(b, 100, false, true)
 }
 
-func BenchmarkMapIntLookup100(b *testing.B) {
-	benchmarkMapIntLookup(b, 100)
+func BenchmarkAddOrGetSafe1000(b *testing.B) {
+	benchmarkAddOrGet(b, 1000, false, true)
 }
 
-func BenchmarkMapIntLookup1000(b *testing.B) {
-	benchmarkMapIntLookup(b, 1000)
+func BenchmarkAddOrGetSafe10000(b *testing.B) {
+	benchmarkAddOrGet(b, 10000, false, true)
 }
 
-func BenchmarkMapIntLookup10000(b *testing.B) {
-	benchmarkMapIntLookup(b, 10000)
-}
-
-func BenchmarkMapIntLookup100000(b *testing.B) {
+func BenchmarkAddOrGetSafe100000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapIntLookup(b, 100000)
+	benchmarkAddOrGet(b, 100000, false, true)
 }
 
-func BenchmarkMapIntLookup1000000(b *testing.B) {
+func BenchmarkAddOrGetSafe1000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapIntLookup(b, 1000000)
+	benchmarkAddOrGet(b, 1000000, false, true)
 }
 
-func BenchmarkMapIntLookup5000000(b *testing.B) {
+func BenchmarkAddOrGetSafe5000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkMapIntLookup(b, 5000000)
+	benchmarkAddOrGet(b, 5000000, false, true)
 }
 
-func benchmarkMapIntLookup(b *testing.B, num int) {
-	index := make(map[uint32]uintptr)
-	keys := make([]uint32, 0)
-	vals := make([]uintptr, 0)
-	for i := 0; i < num; i++ {
-		keys = append(keys, uint32(i))
-		vals = append(vals, uintptr(i))
-		index[uint32(i)] = vals[i]
+var globalPtr uintptr
 
+func benchmarkAddOrGet(b *testing.B, num int, compr bool, safe bool) {
+	c := NewConfig()
+	if compr {
+		c.Compression = Shoco
 	}
 
-	b.ResetTimer()
-	b.ReportAllocs()
+	oi := NewObjectIntern(c)
 
-	for i := 0; i < b.N; i++ {
-		for j, key := range keys {
-			val := index[key]
-			if val != vals[j] {
-				b.Error("Value from map does not match value in slice")
-				return
-			}
-		}
-	}
-}
-
-func BenchmarkMapIntInsert10(b *testing.B) {
-	benchmarkMapIntInsert(b, 10)
-}
-
-func BenchmarkMapIntInsert100(b *testing.B) {
-	benchmarkMapIntInsert(b, 100)
-}
-
-func BenchmarkMapIntInsert1000(b *testing.B) {
-	benchmarkMapIntInsert(b, 1000)
-}
-
-func BenchmarkMapIntInsert10000(b *testing.B) {
-	benchmarkMapIntInsert(b, 10000)
-}
-
-func BenchmarkMapIntInsert100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkMapIntInsert(b, 100000)
-}
-
-func BenchmarkMapIntInsert1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkMapIntInsert(b, 1000000)
-}
-
-func BenchmarkMapIntInsert5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkMapIntInsert(b, 5000000)
-}
-
-func benchmarkMapIntInsert(b *testing.B, num int) {
-	index := make(map[uint32]uintptr)
-	keys := make([]uint32, 0)
-	vals := make([]uintptr, 0)
-	for i := 0; i < num; i++ {
-		keys = append(keys, uint32(i))
-		vals = append(vals, uintptr(i))
-
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for j, key := range keys {
-			index[key] = vals[j]
-		}
-	}
-}
-
-func BenchmarkAddOrGet10(b *testing.B) {
-	benchmarkAddOrGet(b, 10)
-}
-
-func BenchmarkAddOrGet100(b *testing.B) {
-	benchmarkAddOrGet(b, 100)
-}
-
-func BenchmarkAddOrGet1000(b *testing.B) {
-	benchmarkAddOrGet(b, 1000)
-}
-
-func BenchmarkAddOrGet10000(b *testing.B) {
-	benchmarkAddOrGet(b, 10000)
-}
-
-func BenchmarkAddOrGet100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 100000)
-}
-
-func BenchmarkAddOrGet1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 1000000)
-}
-
-func BenchmarkAddOrGet5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 5000000)
-}
-
-func benchmarkAddOrGet(b *testing.B, num int) {
-	oi := NewObjectIntern(NewConfig())
 	data := make([][]byte, 0)
 	for i := 0; i < num; i++ {
-		data = append(data, []byte(fmt.Sprintf("%d", i)))
+		data = append(data, []byte(fmt.Sprintf("words%d", i)))
 	}
 
 	b.ResetTimer()
@@ -850,53 +691,135 @@ func benchmarkAddOrGet(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for _, obj := range data {
-			oi.AddOrGet(obj, true)
+			globalPtr, _ = oi.AddOrGet(obj, safe)
 		}
 	}
 }
 
-func BenchmarkAddOrGetString10(b *testing.B) {
-	benchmarkAddOrGetString(b, 10)
+func BenchmarkAddOrGetStringCompressed10(b *testing.B) {
+	benchmarkAddOrGetString(b, 10, true, true)
 }
 
-func BenchmarkAddOrGetString100(b *testing.B) {
-	benchmarkAddOrGetString(b, 100)
+func BenchmarkAddOrGetStringCompressed100(b *testing.B) {
+	benchmarkAddOrGetString(b, 100, true, true)
 }
 
-func BenchmarkAddOrGetString1000(b *testing.B) {
-	benchmarkAddOrGetString(b, 1000)
+func BenchmarkAddOrGetStringCompressed1000(b *testing.B) {
+	benchmarkAddOrGetString(b, 1000, true, true)
 }
 
-func BenchmarkAddOrGetString10000(b *testing.B) {
-	benchmarkAddOrGetString(b, 10000)
+func BenchmarkAddOrGetStringCompressed10000(b *testing.B) {
+	benchmarkAddOrGetString(b, 10000, true, true)
 }
 
-func BenchmarkAddOrGetString100000(b *testing.B) {
+func BenchmarkAddOrGetStringCompressed100000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkAddOrGetString(b, 100000)
+	benchmarkAddOrGetString(b, 100000, true, true)
 }
 
-func BenchmarkAddOrGetString1000000(b *testing.B) {
+func BenchmarkAddOrGetStringCompressed1000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkAddOrGetString(b, 1000000)
+	benchmarkAddOrGetString(b, 1000000, true, true)
 }
 
-func BenchmarkAddOrGetString5000000(b *testing.B) {
+func BenchmarkAddOrGetStringCompressed5000000(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping " + b.Name() + " in short mode")
 	}
-	benchmarkAddOrGetString(b, 5000000)
+	benchmarkAddOrGetString(b, 5000000, true, true)
 }
 
-func benchmarkAddOrGetString(b *testing.B, num int) {
-	oi := NewObjectIntern(NewConfig())
+func BenchmarkAddOrGetUnsafeString10(b *testing.B) {
+	benchmarkAddOrGetString(b, 10, false, false)
+}
+
+func BenchmarkAddOrGetUnsafeString100(b *testing.B) {
+	benchmarkAddOrGetString(b, 100, false, false)
+}
+
+func BenchmarkAddOrGetUnsafeString1000(b *testing.B) {
+	benchmarkAddOrGetString(b, 1000, false, false)
+}
+
+func BenchmarkAddOrGetUnsafeString10000(b *testing.B) {
+	benchmarkAddOrGetString(b, 10000, false, false)
+}
+
+func BenchmarkAddOrGetUnsafeString100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 100000, false, false)
+}
+
+func BenchmarkAddOrGetUnsafeString1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 1000000, false, false)
+}
+
+func BenchmarkAddOrGetUnsafeString5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 5000000, false, false)
+}
+
+func BenchmarkAddOrGetSafeString10(b *testing.B) {
+	benchmarkAddOrGetString(b, 10, false, true)
+}
+
+func BenchmarkAddOrGetSafeString100(b *testing.B) {
+	benchmarkAddOrGetString(b, 100, false, true)
+}
+
+func BenchmarkAddOrGetSafeString1000(b *testing.B) {
+	benchmarkAddOrGetString(b, 1000, false, true)
+}
+
+func BenchmarkAddOrGetSafeString10000(b *testing.B) {
+	benchmarkAddOrGetString(b, 10000, false, true)
+}
+
+func BenchmarkAddOrGetSafeString100000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 100000, false, true)
+}
+
+func BenchmarkAddOrGetSafeString1000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 1000000, false, true)
+}
+
+func BenchmarkAddOrGetSafeString5000000(b *testing.B) {
+	if testing.Short() {
+		b.Skip("skipping " + b.Name() + " in short mode")
+	}
+	benchmarkAddOrGetString(b, 5000000, false, true)
+}
+
+var globalStr string
+
+func benchmarkAddOrGetString(b *testing.B, num int, compr bool, safe bool) {
+	c := NewConfig()
+	if compr {
+		c.Compression = Shoco
+	}
+
+	oi := NewObjectIntern(c)
+
 	data := make([][]byte, 0)
 	for i := 0; i < num; i++ {
-		data = append(data, []byte(fmt.Sprintf("%d", i)))
+		data = append(data, []byte(fmt.Sprintf("words%d", i)))
 	}
 
 	b.ResetTimer()
@@ -904,7 +827,7 @@ func benchmarkAddOrGetString(b *testing.B, num int) {
 
 	for i := 0; i < b.N; i++ {
 		for _, obj := range data {
-			oi.AddOrGetString(obj, true)
+			globalStr, _ = oi.AddOrGetString(obj, safe)
 		}
 	}
 }
@@ -933,6 +856,8 @@ func BenchmarkDecompressNone(b *testing.B) {
 	benchmarkDecompress(b, cnf)
 }
 
+var globalBSlice []byte
+
 func benchmarkCompress(b *testing.B, cnf ObjectInternConfig) {
 	oi := NewObjectIntern(cnf)
 	data := []byte("HowTheWindBlowsThroughTheTrees")
@@ -941,7 +866,7 @@ func benchmarkCompress(b *testing.B, cnf ObjectInternConfig) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.compress(data)
+		globalBSlice = oi.compress(data)
 	}
 }
 
@@ -954,7 +879,7 @@ func benchmarkDecompress(b *testing.B, cnf ObjectInternConfig) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.decompress(comp)
+		globalBSlice, _ = oi.decompress(comp)
 	}
 }
 
@@ -989,7 +914,7 @@ func benchmarkCompressSz(b *testing.B, cnf ObjectInternConfig, sz string) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.CompressString(sz)
+		globalStr = oi.CompressString(sz)
 	}
 }
 
@@ -1001,6 +926,6 @@ func benchmarkDecompressSz(b *testing.B, cnf ObjectInternConfig, sz string) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		oi.DecompressString(comp)
+		globalStr, _ = oi.DecompressString(comp)
 	}
 }

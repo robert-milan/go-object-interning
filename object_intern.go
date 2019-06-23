@@ -26,7 +26,7 @@ type ObjectIntern struct {
 // provided in the ObjectInternConfig.
 func NewObjectIntern(c ObjectInternConfig) *ObjectIntern {
 	oi := ObjectIntern{
-		conf:     Config,
+		conf:     c,
 		store:    gos.NewObjectStore(100),
 		objIndex: make(map[string]uintptr),
 	}
