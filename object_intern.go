@@ -560,21 +560,19 @@ func (oi *ObjectIntern) ObjBytes(objAddr uintptr) ([]byte, error) {
 	var err error
 
 	oi.RLock()
+	defer oi.RUnlock()
 
 	b, err := oi.store.Get(objAddr)
 	if err != nil {
-		oi.RUnlock()
 		return nil, err
 	}
 
 	if oi.conf.Compression != None {
 		// remove 4 trailing bytes for reference count and decompress
 		b, err = oi.decompress(b[:len(b)-4])
-		oi.RUnlock()
 		return b, err
 	}
 
-	oi.RUnlock()
 	// remove 4 trailing bytes for reference count
 	return b[:len(b)-4], nil
 }
