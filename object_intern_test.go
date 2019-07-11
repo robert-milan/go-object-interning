@@ -560,275 +560,117 @@ func TestCompressSzDecompressSz(t *testing.T) {
 	}
 }
 
-func BenchmarkAddOrGetCompressed10(b *testing.B) {
-	benchmarkAddOrGet(b, 10, true, true)
-}
-
-func BenchmarkAddOrGetCompressed100(b *testing.B) {
-	benchmarkAddOrGet(b, 100, true, true)
-}
-
-func BenchmarkAddOrGetCompressed1000(b *testing.B) {
-	benchmarkAddOrGet(b, 1000, true, true)
-}
-
-func BenchmarkAddOrGetCompressed10000(b *testing.B) {
-	benchmarkAddOrGet(b, 10000, true, true)
-}
-
-func BenchmarkAddOrGetCompressed100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 100000, true, true)
-}
-
-func BenchmarkAddOrGetCompressed1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 1000000, true, true)
-}
-
-func BenchmarkAddOrGetCompressed5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 5000000, true, true)
-}
-
-func BenchmarkAddOrGetUnsafe10(b *testing.B) {
-	benchmarkAddOrGet(b, 10, false, false)
-}
-
-func BenchmarkAddOrGetUnsafe100(b *testing.B) {
-	benchmarkAddOrGet(b, 100, false, false)
-}
-
-func BenchmarkAddOrGetUnsafe1000(b *testing.B) {
-	benchmarkAddOrGet(b, 1000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafe10000(b *testing.B) {
-	benchmarkAddOrGet(b, 10000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafe100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 100000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafe1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 1000000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafe5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 5000000, false, false)
-}
-
-func BenchmarkAddOrGetSafe10(b *testing.B) {
-	benchmarkAddOrGet(b, 10, false, true)
-}
-
-func BenchmarkAddOrGetSafe100(b *testing.B) {
-	benchmarkAddOrGet(b, 100, false, true)
-}
-
-func BenchmarkAddOrGetSafe1000(b *testing.B) {
-	benchmarkAddOrGet(b, 1000, false, true)
-}
-
-func BenchmarkAddOrGetSafe10000(b *testing.B) {
-	benchmarkAddOrGet(b, 10000, false, true)
-}
-
-func BenchmarkAddOrGetSafe100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 100000, false, true)
-}
-
-func BenchmarkAddOrGetSafe1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 1000000, false, true)
-}
-
-func BenchmarkAddOrGetSafe5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGet(b, 5000000, false, true)
-}
-
 var globalPtr uintptr
-
-func benchmarkAddOrGet(b *testing.B, num int, compr bool, safe bool) {
-	c := NewConfig()
-	if compr {
-		c.Compression = Shoco
-	}
-
-	oi := NewObjectIntern(c)
-
-	data := make([][]byte, 0)
-	for i := 0; i < num; i++ {
-		data = append(data, []byte(fmt.Sprintf("words%d", i)))
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		for _, obj := range data {
-			globalPtr, _ = oi.AddOrGet(obj, safe)
-		}
-	}
-}
-
-func BenchmarkAddOrGetStringCompressed10(b *testing.B) {
-	benchmarkAddOrGetString(b, 10, true, true)
-}
-
-func BenchmarkAddOrGetStringCompressed100(b *testing.B) {
-	benchmarkAddOrGetString(b, 100, true, true)
-}
-
-func BenchmarkAddOrGetStringCompressed1000(b *testing.B) {
-	benchmarkAddOrGetString(b, 1000, true, true)
-}
-
-func BenchmarkAddOrGetStringCompressed10000(b *testing.B) {
-	benchmarkAddOrGetString(b, 10000, true, true)
-}
-
-func BenchmarkAddOrGetStringCompressed100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 100000, true, true)
-}
-
-func BenchmarkAddOrGetStringCompressed1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 1000000, true, true)
-}
-
-func BenchmarkAddOrGetStringCompressed5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 5000000, true, true)
-}
-
-func BenchmarkAddOrGetUnsafeString10(b *testing.B) {
-	benchmarkAddOrGetString(b, 10, false, false)
-}
-
-func BenchmarkAddOrGetUnsafeString100(b *testing.B) {
-	benchmarkAddOrGetString(b, 100, false, false)
-}
-
-func BenchmarkAddOrGetUnsafeString1000(b *testing.B) {
-	benchmarkAddOrGetString(b, 1000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafeString10000(b *testing.B) {
-	benchmarkAddOrGetString(b, 10000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafeString100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 100000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafeString1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 1000000, false, false)
-}
-
-func BenchmarkAddOrGetUnsafeString5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 5000000, false, false)
-}
-
-func BenchmarkAddOrGetSafeString10(b *testing.B) {
-	benchmarkAddOrGetString(b, 10, false, true)
-}
-
-func BenchmarkAddOrGetSafeString100(b *testing.B) {
-	benchmarkAddOrGetString(b, 100, false, true)
-}
-
-func BenchmarkAddOrGetSafeString1000(b *testing.B) {
-	benchmarkAddOrGetString(b, 1000, false, true)
-}
-
-func BenchmarkAddOrGetSafeString10000(b *testing.B) {
-	benchmarkAddOrGetString(b, 10000, false, true)
-}
-
-func BenchmarkAddOrGetSafeString100000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 100000, false, true)
-}
-
-func BenchmarkAddOrGetSafeString1000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 1000000, false, true)
-}
-
-func BenchmarkAddOrGetSafeString5000000(b *testing.B) {
-	if testing.Short() {
-		b.Skip("skipping " + b.Name() + " in short mode")
-	}
-	benchmarkAddOrGetString(b, 5000000, false, true)
-}
-
 var globalStr string
 
-func benchmarkAddOrGetString(b *testing.B, num int, compr bool, safe bool) {
-	c := NewConfig()
-	if compr {
-		c.Compression = Shoco
+func BenchmarkAddOrGet(b *testing.B) {
+	benchmarks := []struct {
+		name        string
+		num         int
+		compression bool
+		safe        bool
+		dupe        bool
+		short       bool
+		stringTest  bool
+	}{
+		// AddOrGet
+		{"CompressedUintptr-10", 10, true, true, false, false, false},
+		{"CompressedUintptr-100", 100, true, true, false, false, false},
+		{"CompressedUintptr-1000", 1000, true, true, false, false, false},
+		{"CompressedUintptr-10000", 10000, true, true, false, false, false},
+		// skip short
+		{"CompressedUintptr-100000", 100000, true, true, false, true, false},
+		{"CompressedUintptr-1000000", 1000000, true, true, false, true, false},
+		{"CompressedUintptr-5000000", 5000000, true, true, false, true, false},
+
+		{"UnsafeUintptr-10", 10, false, false, false, false, false},
+		{"UnsafeUintptr-100", 100, false, false, false, false, false},
+		{"UnsafeUintptr-1000", 1000, false, false, false, false, false},
+		{"UnsafeUintptr-10000", 10000, false, false, false, false, false},
+		// skip short
+		{"UnsafeUintptr-100000", 100000, false, false, false, true, false},
+		{"UnsafeUintptr-1000000", 1000000, false, false, false, true, false},
+		{"UnsafeUintptr-5000000", 5000000, false, false, false, true, false},
+
+		{"SafeUintptr-10", 10, false, true, false, false, false},
+		{"SafeUintptr-100", 100, false, true, false, false, false},
+		{"SafeUintptr-1000", 1000, false, true, false, false, false},
+		{"SafeUintptr-10000", 10000, false, true, false, false, false},
+		// skip short
+		{"SafeUintptr-100000", 100000, false, true, false, true, false},
+		{"SafeUintptr-1000000", 1000000, false, true, false, true, false},
+		{"SafeUintptr-5000000", 5000000, false, true, false, true, false},
+
+		// AddOrGetString
+		{"CompressedString-10", 10, true, true, false, false, true},
+		{"CompressedString-100", 100, true, true, false, false, true},
+		{"CompressedString-1000", 1000, true, true, false, false, true},
+		{"CompressedString-10000", 10000, true, true, false, false, true},
+		// skip short
+		{"CompressedString-100000", 100000, true, true, false, true, true},
+		{"CompressedString-1000000", 1000000, true, true, false, true, true},
+		{"CompressedString-5000000", 5000000, true, true, false, true, true},
+
+		{"UnsafeString-10", 10, false, false, false, false, true},
+		{"UnsafeString-100", 100, false, false, false, false, true},
+		{"UnsafeString-1000", 1000, false, false, false, false, true},
+		{"UnsafeString-10000", 10000, false, false, false, false, true},
+		// skip short
+		{"UnsafeString-100000", 100000, false, false, false, true, true},
+		{"UnsafeString-1000000", 1000000, false, false, false, true, true},
+		{"UnsafeString-5000000", 5000000, false, false, false, true, true},
+
+		{"SafeString-10", 10, false, true, false, false, true},
+		{"SafeString-100", 100, false, true, false, false, true},
+		{"SafeString-1000", 1000, false, true, false, false, true},
+		{"SafeString-10000", 10000, false, true, false, false, true},
+		// skip short
+		{"SafeString-100000", 100000, false, true, false, true, true},
+		{"SafeString-1000000", 1000000, false, true, false, true, true},
+		{"SafeString-5000000", 5000000, false, true, false, true, true},
 	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			if testing.Short() && bm.short {
+				b.Skip()
+			}
 
-	oi := NewObjectIntern(c)
+			c := NewConfig()
+			if bm.compression {
+				c.Compression = Shoco
+			}
 
-	data := make([][]byte, 0)
-	for i := 0; i < num; i++ {
-		data = append(data, []byte(fmt.Sprintf("words%d", i)))
-	}
+			oi := NewObjectIntern(c)
 
-	b.ResetTimer()
-	b.ReportAllocs()
+			data := make([][]byte, 0)
+			for i := 0; i < bm.num; i++ {
+				data = append(data, []byte(fmt.Sprintf("worlds%d", i)))
+			}
 
-	for i := 0; i < b.N; i++ {
-		for _, obj := range data {
-			globalStr, _ = oi.AddOrGetString(obj, safe)
-		}
+			if bm.dupe {
+				for i := 2; i < bm.num; i += 2 {
+					data[i] = []byte(fmt.Sprintf("words%d", i-1))
+				}
+			}
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			if bm.stringTest {
+				for i := 0; i < b.N; i++ {
+					for _, obj := range data {
+						globalStr, _ = oi.AddOrGetString(obj, bm.safe)
+					}
+				}
+			} else {
+
+				for i := 0; i < b.N; i++ {
+					for _, obj := range data {
+						globalPtr, _ = oi.AddOrGet(obj, bm.safe)
+					}
+				}
+			}
+		})
 	}
 }
 
