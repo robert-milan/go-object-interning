@@ -107,6 +107,25 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 	// if either of these two terms is true then the rest of this block
 	// requires a lot of allocations
 	if (oi.conf.Compression != None) || (safe && oi.conf.Compression == None) {
+
+		// if compression is turned off this is likely the least costly and most
+		// probable path
+		if oi.conf.Compression == None {
+			// acquire lock
+			oi.Lock()
+
+			// try to find the object in the index before allocationg a new one to use later on
+			addr, ok := oi.objIndex[string(obj)]
+			if ok {
+				// increment reference count by 1
+				(*(*uint32)(unsafe.Pointer(addr + uintptr(len(obj)))))++
+				oi.Unlock()
+				return addr, nil
+			}
+
+			oi.Unlock()
+		}
+
 		objComp := obj
 
 		if oi.conf.Compression != None {
@@ -215,6 +234,31 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 	// if either of these two terms is true then the rest of this block
 	// requires a lot of allocations
 	if (oi.conf.Compression != None) || (safe && oi.conf.Compression == None) {
+
+		// if compression is turned off this is likely the least costly and most
+		// probable path
+		if oi.conf.Compression == None {
+
+			//acquire the lock
+			oi.Lock()
+
+			// try to find the object in the index
+			addr, ok := oi.objIndex[string(obj)]
+			if ok {
+				// increment reference count by 1
+				(*(*uint32)(unsafe.Pointer(addr + uintptr(len(obj)))))++
+				// create a StringHeader and set its values appropriately
+				stringHeader := &reflect.StringHeader{
+					Data: addr,
+					Len:  len(obj),
+				}
+				oi.Unlock()
+				return (*(*string)(unsafe.Pointer(stringHeader))), nil
+			}
+
+			oi.Unlock()
+		}
+
 		objComp := obj
 
 		if oi.conf.Compression != None {
