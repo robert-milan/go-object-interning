@@ -583,6 +583,16 @@ func BenchmarkAddOrGet(b *testing.B) {
 		{"CompressedUintptr-1000000", 1000000, true, true, false, true, false},
 		{"CompressedUintptr-5000000", 5000000, true, true, false, true, false},
 
+		// dupes
+		{"CompressedDuplicatesUintptr-10", 10, true, true, true, false, false},
+		{"CompressedDuplicatesUintptr-100", 100, true, true, true, false, false},
+		{"CompressedDuplicatesUintptr-1000", 1000, true, true, true, false, false},
+		{"CompressedDuplicatesUintptr-10000", 10000, true, true, true, false, false},
+		// skip short
+		{"CompressedDuplicatesUintptr-100000", 100000, true, true, true, true, false},
+		{"CompressedDuplicatesUintptr-1000000", 1000000, true, true, true, true, false},
+		{"CompressedDuplicatesUintptr-5000000", 5000000, true, true, true, true, false},
+
 		{"UnsafeUintptr-10", 10, false, false, false, false, false},
 		{"UnsafeUintptr-100", 100, false, false, false, false, false},
 		{"UnsafeUintptr-1000", 1000, false, false, false, false, false},
@@ -592,6 +602,16 @@ func BenchmarkAddOrGet(b *testing.B) {
 		{"UnsafeUintptr-1000000", 1000000, false, false, false, true, false},
 		{"UnsafeUintptr-5000000", 5000000, false, false, false, true, false},
 
+		// dupes
+		{"UnsafeDuplicatesUintptr-10", 10, false, false, true, false, false},
+		{"UnsafeDuplicatesUintptr-100", 100, false, false, true, false, false},
+		{"UnsafeDuplicatesUintptr-1000", 1000, false, false, true, false, false},
+		{"UnsafeDuplicatesUintptr-10000", 10000, false, false, true, false, false},
+		// skip short
+		{"UnsafeDuplicatesUintptr-100000", 100000, false, false, true, true, false},
+		{"UnsafeDuplicatesUintptr-1000000", 1000000, false, false, true, true, false},
+		{"UnsafeDuplicatesUintptr-5000000", 5000000, false, false, true, true, false},
+
 		{"SafeUintptr-10", 10, false, true, false, false, false},
 		{"SafeUintptr-100", 100, false, true, false, false, false},
 		{"SafeUintptr-1000", 1000, false, true, false, false, false},
@@ -600,6 +620,16 @@ func BenchmarkAddOrGet(b *testing.B) {
 		{"SafeUintptr-100000", 100000, false, true, false, true, false},
 		{"SafeUintptr-1000000", 1000000, false, true, false, true, false},
 		{"SafeUintptr-5000000", 5000000, false, true, false, true, false},
+
+		// dupes
+		{"SafeDuplicatesUintptr-10", 10, false, true, true, false, false},
+		{"SafeDuplicatesUintptr-100", 100, false, true, true, false, false},
+		{"SafeDuplicatesUintptr-1000", 1000, false, true, true, false, false},
+		{"SafeDuplicatesUintptr-10000", 10000, false, true, true, false, false},
+		// skip short
+		{"SafeDuplicatesUintptr-100000", 100000, false, true, true, true, false},
+		{"SafeDuplicatesUintptr-1000000", 1000000, false, true, true, true, false},
+		{"SafeDuplicatesUintptr-5000000", 5000000, false, true, true, true, false},
 
 		// AddOrGetString
 		{"CompressedString-10", 10, true, true, false, false, true},
@@ -611,6 +641,16 @@ func BenchmarkAddOrGet(b *testing.B) {
 		{"CompressedString-1000000", 1000000, true, true, false, true, true},
 		{"CompressedString-5000000", 5000000, true, true, false, true, true},
 
+		// dupes
+		{"CompressedDuplicatesString-10", 10, true, true, true, false, true},
+		{"CompressedDuplicatesString-100", 100, true, true, true, false, true},
+		{"CompressedDuplicatesString-1000", 1000, true, true, true, false, true},
+		{"CompressedDuplicatesString-10000", 10000, true, true, true, false, true},
+		// skip short
+		{"CompressedDuplicatesString-100000", 100000, true, true, true, true, true},
+		{"CompressedDuplicatesString-1000000", 1000000, true, true, true, true, true},
+		{"CompressedDuplicatesString-5000000", 5000000, true, true, true, true, true},
+
 		{"UnsafeString-10", 10, false, false, false, false, true},
 		{"UnsafeString-100", 100, false, false, false, false, true},
 		{"UnsafeString-1000", 1000, false, false, false, false, true},
@@ -620,6 +660,16 @@ func BenchmarkAddOrGet(b *testing.B) {
 		{"UnsafeString-1000000", 1000000, false, false, false, true, true},
 		{"UnsafeString-5000000", 5000000, false, false, false, true, true},
 
+		// dupes
+		{"UnsafeDuplicatesString-10", 10, false, false, true, false, true},
+		{"UnsafeDuplicatesString-100", 100, false, false, true, false, true},
+		{"UnsafeDuplicatesString-1000", 1000, false, false, true, false, true},
+		{"UnsafeDuplicatesString-10000", 10000, false, false, true, false, true},
+		// skip short
+		{"UnsafeDuplicatesString-100000", 100000, false, false, true, true, true},
+		{"UnsafeDuplicatesString-1000000", 1000000, false, false, true, true, true},
+		{"UnsafeDuplicatesString-5000000", 5000000, false, false, true, true, true},
+
 		{"SafeString-10", 10, false, true, false, false, true},
 		{"SafeString-100", 100, false, true, false, false, true},
 		{"SafeString-1000", 1000, false, true, false, false, true},
@@ -628,6 +678,16 @@ func BenchmarkAddOrGet(b *testing.B) {
 		{"SafeString-100000", 100000, false, true, false, true, true},
 		{"SafeString-1000000", 1000000, false, true, false, true, true},
 		{"SafeString-5000000", 5000000, false, true, false, true, true},
+
+		// dupes
+		{"SafeDuplicatesString-10", 10, false, true, true, false, true},
+		{"SafeDuplicatesString-100", 100, false, true, true, false, true},
+		{"SafeDuplicatesString-1000", 1000, false, true, true, false, true},
+		{"SafeDuplicatesString-10000", 10000, false, true, true, false, true},
+		// skip short
+		{"SafeDuplicatesString-100000", 100000, false, true, true, true, true},
+		{"SafeDuplicatesString-1000000", 1000000, false, true, true, true, true},
+		{"SafeDuplicatesString-5000000", 5000000, false, true, true, true, true},
 	}
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
@@ -642,9 +702,9 @@ func BenchmarkAddOrGet(b *testing.B) {
 
 			oi := NewObjectIntern(c)
 
-			data := make([][]byte, 0)
+			data := make([][]byte, 0, bm.num)
 			for i := 0; i < bm.num; i++ {
-				data = append(data, []byte(fmt.Sprintf("worlds%d", i)))
+				data = append(data, []byte(fmt.Sprintf("words%d", i)))
 			}
 
 			if bm.dupe {
@@ -663,10 +723,161 @@ func BenchmarkAddOrGet(b *testing.B) {
 					}
 				}
 			} else {
-
 				for i := 0; i < b.N; i++ {
 					for _, obj := range data {
 						globalPtr, _ = oi.AddOrGet(obj, bm.safe)
+					}
+				}
+			}
+		})
+	}
+}
+
+// if you don't use the -short flag while running these benchmarks, they will take
+// a very long time to complete
+func BenchmarkDelete(b *testing.B) {
+	benchmarks := []struct {
+		name        string
+		num         int
+		compression bool
+		byByte      bool
+		byString    bool
+		short       bool
+	}{
+		// Delete
+		{"Uintptr-10", 10, false, false, false, false},
+		{"Uintptr-100", 100, false, false, false, false},
+		{"Uintptr-1000", 1000, false, false, false, false},
+		{"Uintptr-10000", 10000, false, false, false, false},
+		// skip short
+		{"Uintptr-100000", 100000, false, false, false, true},
+		{"Uintptr-1000000", 1000000, false, false, false, true},
+		{"Uintptr-5000000", 5000000, false, false, false, true},
+
+		// Delete By Byte
+		{"Byte-10", 10, false, true, false, false},
+		{"Byte-100", 100, false, true, false, false},
+		{"Byte-1000", 1000, false, true, false, false},
+		{"Byte-10000", 10000, false, true, false, false},
+		// skip short
+		{"Byte-100000", 100000, false, true, false, true},
+		{"Byte-1000000", 1000000, false, true, false, true},
+		{"Byte-5000000", 5000000, false, true, false, true},
+
+		// Delete By Byte Compressed
+		{"CompressedByte-10", 10, true, true, false, false},
+		{"CompressedByte-100", 100, true, true, false, false},
+		{"CompressedByte-1000", 1000, true, true, false, false},
+		{"CompressedByte-10000", 10000, true, true, false, false},
+		// skip short
+		{"CompressedByte-100000", 100000, true, true, false, true},
+		{"CompressedByte-1000000", 1000000, true, true, false, true},
+		{"CompressedByte-5000000", 5000000, true, true, false, true},
+
+		// Delete By String
+		{"String-10", 10, false, false, true, false},
+		{"String-100", 100, false, false, true, false},
+		{"String-1000", 1000, false, false, true, false},
+		{"String-10000", 10000, false, false, true, false},
+		// skip short
+		{"String-100000", 100000, false, false, true, true},
+		{"String-1000000", 1000000, false, false, true, true},
+		{"String-5000000", 5000000, false, false, true, true},
+
+		// Delete By String Compressed
+		{"CompressedString-10", 10, true, false, true, false},
+		{"CompressedString-100", 100, true, false, true, false},
+		{"CompressedString-1000", 1000, true, false, true, false},
+		{"CompressedString-10000", 10000, true, false, true, false},
+		// skip short
+		{"CompressedString-100000", 100000, true, false, true, true},
+		{"CompressedString-1000000", 1000000, true, false, true, true},
+		{"CompressedString-5000000", 5000000, true, false, true, true},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			if testing.Short() && bm.short {
+				b.Skip()
+			}
+
+			c := NewConfig()
+			if bm.compression {
+				c.Compression = Shoco
+			}
+
+			oi := NewObjectIntern(c)
+
+			var ok bool
+			var err error
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			if bm.byByte {
+				for i := 0; i < b.N; i++ {
+					b.StopTimer()
+
+					data := make([][]byte, 0, bm.num)
+					rand.Seed(time.Now().UnixNano())
+					l := len(testStrings)
+
+					for i := 0; i < bm.num; i++ {
+						data = append(data, []byte(fmt.Sprintf(testStrings[rand.Intn(l)]+"%d", i)))
+						oi.AddOrGet(data[i], false)
+					}
+
+					b.StartTimer()
+					for _, obj := range data {
+						ok, err = oi.DeleteByByte(obj)
+						if !ok {
+							b.Fatalf("Failed to delete byte: %v -- %v", obj, err)
+						}
+					}
+				}
+			} else if bm.byString {
+				for i := 0; i < b.N; i++ {
+					b.StopTimer()
+
+					strs := make([]string, 0, bm.num)
+					data := make([][]byte, 0, bm.num)
+					rand.Seed(time.Now().UnixNano())
+					l := len(testStrings)
+
+					for i := 0; i < bm.num; i++ {
+						data = append(data, []byte(fmt.Sprintf(testStrings[rand.Intn(l)]+"%d", i)))
+						strs = append(strs, string(data[i]))
+						oi.AddOrGet(data[i], false)
+					}
+
+					b.StartTimer()
+					for _, str := range strs {
+						ok, err = oi.DeleteByString(str)
+						if !ok {
+							b.Fatalf("Failed to delete string: %s -- %v", str, err)
+						}
+					}
+				}
+			} else {
+				for i := 0; i < b.N; i++ {
+					b.StopTimer()
+
+					ptrs := make([]uintptr, 0, bm.num)
+					data := make([][]byte, 0, bm.num)
+					rand.Seed(time.Now().UnixNano())
+					l := len(testStrings)
+
+					for i := 0; i < bm.num; i++ {
+						data = append(data, []byte(fmt.Sprintf(testStrings[rand.Intn(l)]+"%d", i)))
+						globalPtr, _ = oi.AddOrGet(data[i], false)
+						ptrs = append(ptrs, globalPtr)
+					}
+
+					b.StartTimer()
+					for _, ptr := range ptrs {
+						ok, err = oi.Delete(ptr)
+						if !ok {
+							b.Fatalf("Failed to delete by uintptr: %d -- %v", ptr, err)
+						}
 					}
 				}
 			}
