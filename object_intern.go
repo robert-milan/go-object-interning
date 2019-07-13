@@ -123,6 +123,8 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 				(*(*uint32)(unsafe.Pointer(addr + uintptr(len(obj)))))++
 				return addr, nil
 			}
+
+			oi.Unlock()
 		}
 
 		objComp := obj
@@ -249,6 +251,8 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 				}
 				return (*(*string)(unsafe.Pointer(stringHeader))), nil
 			}
+
+			oi.Unlock()
 		}
 
 		objComp := obj
