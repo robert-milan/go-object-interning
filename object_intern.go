@@ -104,6 +104,8 @@ func (oi *ObjectIntern) DecompressString(in string) (string, error) {
 // If the object is added to the store its reference count is set to 1.
 func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 
+	defer oi.Unlock()
+
 	// if either of these two terms is true then the rest of this block
 	// requires a lot of allocations
 	if (oi.conf.Compression != None) || (safe && oi.conf.Compression == None) {
@@ -119,11 +121,8 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 			if ok {
 				// increment reference count by 1
 				(*(*uint32)(unsafe.Pointer(addr + uintptr(len(obj)))))++
-				oi.Unlock()
 				return addr, nil
 			}
-
-			oi.Unlock()
 		}
 
 		objComp := obj
@@ -149,7 +148,6 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 		if ok {
 			// increment reference count by 1
 			(*(*uint32)(unsafe.Pointer(addr + uintptr(len(objComp)))))++
-			oi.Unlock()
 			return addr, nil
 		}
 
@@ -163,7 +161,6 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 		objComp = append(objComp, InitialRefCount...)
 		addr, err := oi.store.Add(objComp)
 		if err != nil {
-			oi.Unlock()
 			return 0, err
 		}
 
@@ -176,7 +173,6 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 		// add the object to the index
 		oi.objIndex[objString] = addr
 
-		oi.Unlock()
 		return addr, nil
 	}
 
@@ -189,7 +185,6 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 	if ok {
 		// increment reference count by 1
 		(*(*uint32)(unsafe.Pointer(addr + uintptr(len(obj)))))++
-		oi.Unlock()
 		return addr, nil
 	}
 
@@ -205,7 +200,6 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 	obj = append(obj, InitialRefCount...)
 	addr, err := oi.store.Add(obj)
 	if err != nil {
-		oi.Unlock()
 		return 0, err
 	}
 
@@ -215,7 +209,6 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 	// add the object to the index
 	oi.objIndex[objString] = addr
 
-	oi.Unlock()
 	return addr, nil
 
 }
@@ -230,6 +223,8 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 // If the object is found in the store its reference count is increased by 1.
 // If the object is added to the store its reference count is set to 1.
 func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
+
+	defer oi.Unlock()
 
 	// if either of these two terms is true then the rest of this block
 	// requires a lot of allocations
@@ -252,11 +247,8 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 					Data: addr,
 					Len:  len(obj),
 				}
-				oi.Unlock()
 				return (*(*string)(unsafe.Pointer(stringHeader))), nil
 			}
-
-			oi.Unlock()
 		}
 
 		objComp := obj
@@ -287,11 +279,9 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 					Data: addr,
 					Len:  len(objComp),
 				}
-				oi.Unlock()
 				return (*(*string)(unsafe.Pointer(stringHeader))), nil
 			}
 			// don't want to return compressed data, so we create a string from the original object
-			oi.Unlock()
 			return string(obj), nil
 		}
 
@@ -307,7 +297,6 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 		objComp = append(objComp, InitialRefCount...)
 		addr, err := oi.store.Add(objComp)
 		if err != nil {
-			oi.Unlock()
 			return "", err
 		}
 
@@ -317,7 +306,6 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 		// add the object to the index
 		oi.objIndex[objString] = addr
 
-		oi.Unlock()
 		if oi.conf.Compression != None {
 			// don't want to return compressed data, so we create a string from the original object
 			objString = string(obj)
@@ -346,11 +334,9 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 				Data: addr,
 				Len:  len(obj),
 			}
-			oi.Unlock()
 			return (*(*string)(unsafe.Pointer(stringHeader))), nil
 		}
 		// don't want to return compressed data, so we create a string from the original object
-		oi.Unlock()
 		return string(obj), nil
 	}
 
@@ -366,7 +352,6 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 	obj = append(obj, InitialRefCount...)
 	addr, err := oi.store.Add(obj)
 	if err != nil {
-		oi.Unlock()
 		return "", err
 	}
 
@@ -376,7 +361,6 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 	// add the object to the index
 	oi.objIndex[objString] = addr
 
-	oi.Unlock()
 	return objString, nil
 }
 
@@ -391,16 +375,17 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 //
 // This method does not increase the reference count of the interned object.
 func (oi *ObjectIntern) GetPtrFromByte(obj []byte) (uintptr, error) {
+
+	defer oi.RUnlock()
+
 	if oi.conf.Compression != None {
 		oi.RLock()
 		// try to find the compressed object in the index
 		addr, ok := oi.objIndex[string(oi.compress(obj))]
 		if ok {
-			oi.RUnlock()
 			return addr, nil
 		}
 
-		oi.RUnlock()
 		return 0, fmt.Errorf("Could not find object in store: %s", string(obj))
 	}
 
@@ -408,11 +393,9 @@ func (oi *ObjectIntern) GetPtrFromByte(obj []byte) (uintptr, error) {
 	// try to find the object in the index
 	addr, ok := oi.objIndex[string(obj)]
 	if ok {
-		oi.RUnlock()
 		return addr, nil
 	}
 
-	oi.RUnlock()
 	return 0, fmt.Errorf("Could not find object in store: %s", string(obj))
 }
 
@@ -463,11 +446,11 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 
 	// acquire write lock
 	oi.Lock()
+	defer oi.Unlock()
 
 	// check if object exists in the object store
 	compObj, err = oi.store.Get(objAddr)
 	if err != nil {
-		oi.Unlock()
 		return false, err
 	}
 
@@ -476,7 +459,6 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 		// decrement reference count by 1
 		(*(*uint32)(unsafe.Pointer(objAddr + uintptr(len(compObj)-4))))--
 
-		oi.Unlock()
 		return false, nil
 	}
 
@@ -497,10 +479,8 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 	err = oi.store.Delete(objAddr)
 
 	if err == nil {
-		oi.Unlock()
 		return true, nil
 	}
-	oi.Unlock()
 	return false, err
 }
 
