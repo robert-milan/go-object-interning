@@ -295,6 +295,82 @@ func TestRefCount(t *testing.T) {
 	}
 }
 
+func TestIncRefCount(t *testing.T) {
+	oi := NewObjectIntern(NewConfig())
+	results := make(map[string]uintptr, 0)
+
+	for _, b := range testBytes {
+		ret, err := oi.AddOrGet(b, true)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		// need to compress b just as is done in the actual AddOrGet method
+		results[string(oi.compress(b))] = ret
+	}
+
+	// increase reference count to 10
+	for i := 0; i < 9; i++ {
+		for _, v := range results {
+			_, err := oi.IncRefCnt(v)
+			if err != nil {
+				t.Error("Failed to increase reference count: ", v)
+				return
+			}
+		}
+	}
+
+	for _, v := range results {
+		rc, err := oi.RefCnt(v)
+		if err != nil {
+			t.Error("Failed to get reference count: ", rc)
+			return
+		}
+		if rc != 10 {
+			t.Error("Reference Count should be 10, instead we found ", rc)
+			return
+		}
+	}
+}
+
+func TestIncRefCountString(t *testing.T) {
+	oi := NewObjectIntern(NewConfig())
+	results := make(map[string]uintptr, 0)
+
+	for _, b := range testBytes {
+		ret, err := oi.AddOrGet(b, true)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		// need to compress b just as is done in the actual AddOrGet method
+		results[string(oi.compress(b))] = ret
+	}
+
+	// increase reference count to 10
+	for i := 0; i < 9; i++ {
+		for k := range results {
+			_, err := oi.IncRefCntByString(k)
+			if err != nil {
+				t.Error("Failed to increase reference count by string")
+				return
+			}
+		}
+	}
+
+	for _, v := range results {
+		rc, err := oi.RefCnt(v)
+		if err != nil {
+			t.Error("Failed to get reference count: ", rc)
+			return
+		}
+		if rc != 10 {
+			t.Error("Reference Count should be 10, instead we found ", rc)
+			return
+		}
+	}
+}
+
 func TestAddOrGetAndDelete25(t *testing.T) {
 	cnf := NewConfig()
 	cnf.Compression = Shoco

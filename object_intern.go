@@ -548,6 +548,44 @@ func (oi *ObjectIntern) RefCnt(objAddr uintptr) (uint32, error) {
 
 }
 
+// IncRefCnt increments the reference count of an object interned in the store.
+// On failure it returns false and an error, on success it returns true and nil
+func (oi *ObjectIntern) IncRefCnt(objAddr uintptr) (bool, error) {
+	oi.Lock()
+	obj, err := oi.store.Get(objAddr)
+	if err != nil {
+		oi.Unlock()
+		return false, err
+	}
+
+	// increment reference count by 1
+	(*(*uint32)(unsafe.Pointer(objAddr + uintptr(len(obj)-4))))++
+
+	oi.Unlock()
+	return true, nil
+}
+
+// IncRefCntByString increments the reference count of an object interned in the store.
+// On failure it returns false and an error, on success it returns true and nil
+func (oi *ObjectIntern) IncRefCntByString(obj string) (bool, error) {
+	if oi.conf.Compression != None {
+		obj = string(oi.compress([]byte(obj)))
+	}
+
+	// acquire read lock
+	oi.RLock()
+
+	// try to find the object in the index
+	addr, ok := oi.objIndex[obj]
+	if !ok {
+		oi.RUnlock()
+		return false, fmt.Errorf("Could not find object in store")
+	}
+
+	oi.RUnlock()
+	return oi.IncRefCnt(addr)
+}
+
 // ObjBytes returns a []byte and nil on success.
 // On failure it returns nil and an error.
 //
