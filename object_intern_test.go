@@ -221,6 +221,11 @@ func testAddOrGetString(t *testing.T, safe bool, compress bool) {
 				t.Error("Uintptr mismatch for: ", k)
 				return
 			}
+
+			if v != str2 {
+				t.Error("String mismatch for: ", v)
+				return
+			}
 		}
 
 		// return so we don't run the compressed version checks
@@ -251,6 +256,11 @@ func testAddOrGetString(t *testing.T, safe bool, compress bool) {
 
 		if dataPointer == dataPointer2 {
 			t.Error("Uintptrs should not match for compressed data: ", k)
+			return
+		}
+
+		if v != str2 {
+			t.Error("String mismatch for: ", v)
 			return
 		}
 	}

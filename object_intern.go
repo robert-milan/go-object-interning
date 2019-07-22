@@ -296,7 +296,7 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 		oi.Unlock()
 		if oi.conf.Compression != None {
 			// don't want to return compressed data, so we create a string from the original object
-			return string(objComp), nil
+			return string(obj), nil
 		}
 
 		// create a StringHeader and set its values appropriately
@@ -331,7 +331,7 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 	// create a StringHeader and set its values appropriately
 	stringHeader := &reflect.StringHeader{
 		Data: addr,
-		Len:  len(obj) - 4,
+		Len:  len(obj),
 	}
 
 	oi.Unlock()
