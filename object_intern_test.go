@@ -412,12 +412,9 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf ObjectInt
 	addrs := make([]uintptr, 0)
 	// generate numKeys random strings of keySize length
 	originalSzs := make([]string, 0)
-	// also generate compressed versions stored in []byte
-	compSzs := make([][]byte, 0)
 	for i := 0; i < numKeys; i++ {
 		sz := randStringBytesMaskImprSrc(keySize)
 		originalSzs = append(originalSzs, sz)
-		compSzs = append(compSzs, oi.compress([]byte(sz)))
 	}
 
 	// reference count should be 1 after this finishes
@@ -466,6 +463,84 @@ func testAddOrGetAndDelete(t *testing.T, keySize int, numKeys int, cnf ObjectInt
 		}
 	}
 
+}
+
+func TestBatchDelete501(t *testing.T) {
+	cnf := NewConfig()
+	cnf.Compression = None
+	testBatchDelete(t, 30, 501, cnf)
+}
+
+func TestBatchDeleteNoCprsn(t *testing.T) {
+	cnf := NewConfig()
+	cnf.Compression = Shoco
+	testBatchDelete(t, 30, 501, cnf)
+}
+
+func testBatchDelete(t *testing.T, keySize int, numKeys int, cnf ObjectInternConfig) {
+	oi := NewObjectIntern(cnf)
+
+	// slice to store addresses
+	addrs := make([]uintptr, 0)
+	// generate numKeys random strings of keySize length
+	originalSzs := make([]string, 0)
+	for i := 0; i < numKeys; i++ {
+		sz := randStringBytesMaskImprSrc(keySize)
+		originalSzs = append(originalSzs, sz)
+	}
+
+	// reference count should be 1 after this finishes
+	for _, sz := range originalSzs {
+		addr, err := oi.AddOrGet([]byte(sz), true)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", []byte(sz))
+			return
+		}
+		// add addr to addrs
+		addrs = append(addrs, addr)
+	}
+
+	// reference count should be 10 after this finishes
+	for i := 0; i < 9; i++ {
+		for _, sz := range originalSzs {
+			_, err := oi.AddOrGet([]byte(sz), true)
+			if err != nil {
+				t.Error("Failed to AddOrGet: ", []byte(sz))
+				return
+			}
+		}
+	}
+
+	// use subslice to decrease and then delete a subslice of the original
+	// added strings.
+	subAddrs := addrs[:numKeys-5]
+	for i := 0; i < 10; i++ {
+		oi.DeleteBatch(subAddrs)
+	}
+
+	// check to make sure the last 5 still exist
+	lastFive := addrs[numKeys-5:]
+	for _, ptr := range lastFive {
+		_, err := oi.GetStringFromPtr(ptr)
+		if err != nil {
+			t.Error("Could not find string in object store")
+			return
+		}
+	}
+
+	// delete everything
+	for i := 0; i < 10; i++ {
+		oi.DeleteBatch(lastFive)
+	}
+
+	// make sure none of the items exist in the store
+	for _, ptr := range addrs {
+		_, err := oi.GetStringFromPtr(ptr)
+		if err == nil {
+			t.Error("Object should not have been found in the store")
+			return
+		}
+	}
 }
 
 func TestMemStatsPerPool(t *testing.T) {
