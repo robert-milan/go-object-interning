@@ -195,6 +195,13 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 
 		oi.Lock()
 
+		// re-check everything
+		addr, ok = oi.getAndIncrement(objComp)
+		if ok {
+			oi.Unlock()
+			return addr, nil
+		}
+
 		addr, err := oi.add(objComp)
 		if err != nil {
 			oi.Unlock()
@@ -218,6 +225,13 @@ func (oi *ObjectIntern) AddOrGet(obj []byte, safe bool) (uintptr, error) {
 	oi.RUnlock()
 
 	oi.Lock()
+
+	// re-check everything
+	addr, ok = oi.getAndIncrement(obj)
+	if ok {
+		oi.Unlock()
+		return addr, nil
+	}
 
 	addr, err := oi.add(obj)
 	if err != nil {
@@ -300,6 +314,23 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 
 		oi.Lock()
 
+		// re-check everything
+		addr, ok = oi.getAndIncrement(objComp)
+		if ok {
+			if oi.conf.Compression == None {
+				// create a StringHeader and set its values appropriately
+				stringHeader := &reflect.StringHeader{
+					Data: addr,
+					Len:  len(objComp),
+				}
+				oi.Unlock()
+				return (*(*string)(unsafe.Pointer(stringHeader))), nil
+			}
+			// don't want to return compressed data, so we create a string from the original object
+			oi.Unlock()
+			return string(obj), nil
+		}
+
 		addr, err := oi.add(objComp)
 		if err != nil {
 			oi.Unlock()
@@ -338,6 +369,18 @@ func (oi *ObjectIntern) AddOrGetString(obj []byte, safe bool) (string, error) {
 	oi.RUnlock()
 
 	oi.Lock()
+
+	// re-check everything
+	addr, ok = oi.getAndIncrement(obj)
+	if ok {
+		// create a StringHeader and set its values appropriately
+		stringHeader := &reflect.StringHeader{
+			Data: addr,
+			Len:  len(obj),
+		}
+		oi.Unlock()
+		return (*(*string)(unsafe.Pointer(stringHeader))), nil
+	}
 
 	addr, err := oi.add(obj)
 	if err != nil {
@@ -456,6 +499,22 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 	oi.RUnlock()
 
 	oi.Lock()
+
+	// re-check if object exists in the object store
+	obj, err = oi.store.Get(objAddr)
+	if err != nil {
+		oi.Unlock()
+		return false, err
+	}
+
+	// most likely case is that we will just decrement the reference count and return
+	if atomic.LoadUint32((*uint32)(unsafe.Pointer(objAddr+uintptr(len(obj)-4)))) > 1 {
+		// decrement reference count by 1
+		atomic.AddUint32((*uint32)(unsafe.Pointer(objAddr+uintptr(len(obj)-4))), ^uint32(0))
+
+		oi.Unlock()
+		return false, nil
+	}
 
 	// if reference count is 1 or less, delete the object and remove it from index
 	// If one of these operations fails it is still safe to perform the other
