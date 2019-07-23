@@ -100,7 +100,7 @@ func testAddOrGet(t *testing.T, safe bool, compress bool) {
 			t.Error("Failed to AddOrGet: ", b)
 			return
 		}
-		refCnt := *(*uint32)(unsafe.Pointer(addr + uintptr(len(oi.compress(b)))))
+		refCnt := *(*uint32)(unsafe.Pointer(addr))
 		if refCnt != 2 {
 			t.Errorf("Reference count should be 2, instead found %d\n", refCnt)
 			return
@@ -114,7 +114,7 @@ func testAddOrGet(t *testing.T, safe bool, compress bool) {
 			t.Error("Failed to AddOrGet: ", b)
 			return
 		}
-		refCnt := *(*uint32)(unsafe.Pointer(addr + uintptr(len(oi.compress(b)))))
+		refCnt := *(*uint32)(unsafe.Pointer(addr))
 		if refCnt != 3 {
 			t.Errorf("Reference count should be 3, instead found %d\n", refCnt)
 			return
@@ -186,7 +186,7 @@ func testAddOrGetString(t *testing.T, safe bool, compress bool) {
 
 		results2[s] = addr
 
-		refCnt := *(*uint32)(unsafe.Pointer(addr + uintptr(len(oi.compress([]byte(s))))))
+		refCnt := *(*uint32)(unsafe.Pointer(addr))
 		if refCnt != 2 {
 			t.Errorf("Reference count should be 2, instead found %d\n", refCnt)
 			return
