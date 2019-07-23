@@ -546,6 +546,7 @@ func (oi *ObjectIntern) Delete(objAddr uintptr) (bool, error) {
 	return false, err
 }
 
+// DeleteBatch decrements the reference count or deletes the objects from the store
 func (oi *ObjectIntern) DeleteBatch(ptrs []uintptr) {
 	var obj []byte
 	var err error
@@ -575,6 +576,68 @@ func (oi *ObjectIntern) DeleteBatch(ptrs []uintptr) {
 	oi.RUnlock()
 
 	if len(toDelete) > 0 {
+
+		oi.Lock()
+
+		for _, p := range toDelete {
+			// re-check if object exists in the object store
+			obj, err = oi.store.Get(p)
+			if err != nil {
+				continue
+			}
+
+			// most likely case is that we will just decrement the reference count and return
+			if atomic.LoadUint32((*uint32)(unsafe.Pointer(p))) > 1 {
+				// decrement reference count by 1
+				atomic.AddUint32((*uint32)(unsafe.Pointer(p)), ^uint32(0))
+				continue
+			}
+
+			// if reference count is 1 or less, delete the object and remove it from index
+			// If one of these operations fails it is still safe to perform the other
+			// Once we get to this point we are just going to remove all traces of the object
+
+			// delete object from index first
+			// If you delete all of the objects in the slab then the slab will be deleted
+			// When this happens the memory that the slab was using is MUnmapped, which is
+			// the same memory pointed to by the key stored in the ObjIndex. When you try to
+			// access the key to delete it from the ObjIndex you will get a SEGFAULT
+			//
+			// remove 4 leading bytes for reference count since ObjIndex does not store reference count in the key
+			delete(oi.objIndex, string(obj[4:]))
+
+			// delete object from object store
+			err = oi.store.Delete(p)
+		}
+
+		oi.Unlock()
+	}
+}
+
+// DeleteBatchUnsafe does the same thing as DeleteBatch, but saves time by not acquiring
+// read locks if the objects only need their reference count decremented. This is not safe, and it
+// is up to the caller to ensure the objects actually exist in the store. If you are unsure, don't use this
+// method.
+func (oi *ObjectIntern) DeleteBatchUnsafe(ptrs []uintptr) {
+
+	toDelete := ptrs[:0]
+
+	for _, p := range ptrs {
+		// most likely case is that we will just decrement the reference count and return
+		if atomic.LoadUint32((*uint32)(unsafe.Pointer(p))) > 1 {
+			// decrement reference count by 1
+			atomic.AddUint32((*uint32)(unsafe.Pointer(p)), ^uint32(0))
+			continue
+		}
+
+		toDelete = append(toDelete, p)
+	}
+
+	// this should happen infrequently in most cases
+	if len(toDelete) > 0 {
+
+		var obj []byte
+		var err error
 
 		oi.Lock()
 
@@ -696,7 +759,6 @@ func (oi *ObjectIntern) RefCnt(objAddr uintptr) (uint32, error) {
 		return 0, err
 	}
 
-	// remove 4 trailing bytes for reference count
 	return atomic.LoadUint32((*uint32)(unsafe.Pointer(objAddr))), nil
 }
 
@@ -738,6 +800,7 @@ func (oi *ObjectIntern) IncRefCntByString(obj string) (bool, error) {
 	return oi.IncRefCnt(addr)
 }
 
+// IncRefCntBatch increments the reference count of objects interned in the store.
 func (oi *ObjectIntern) IncRefCntBatch(ptrs []uintptr) {
 	oi.RLock()
 	for _, p := range ptrs {
@@ -752,6 +815,16 @@ func (oi *ObjectIntern) IncRefCntBatch(ptrs []uintptr) {
 
 	}
 	oi.RUnlock()
+}
+
+// IncRefCntBatchUnsafe increments the reference count of objects interned in the store.
+// Since these operations are atomic we don't need to acquire any read locks, but it is
+// up to the caller to ensure the objects actually exist. If you are not sure, use the safer method.
+func (oi *ObjectIntern) IncRefCntBatchUnsafe(ptrs []uintptr) {
+	for _, p := range ptrs {
+		// increment reference count by 1
+		atomic.AddUint32((*uint32)(unsafe.Pointer(p)), 1)
+	}
 }
 
 // ObjBytes returns a []byte and nil on success.
