@@ -315,8 +315,7 @@ func TestIncRefCount(t *testing.T) {
 			t.Error("Failed to AddOrGet: ", b)
 			return
 		}
-		// need to compress b just as is done in the actual AddOrGet method
-		results[string(oi.compress(b))] = ret
+		results[string(b)] = ret
 	}
 
 	// increase reference count to 10
@@ -366,6 +365,39 @@ func TestIncRefCountString(t *testing.T) {
 				return
 			}
 		}
+	}
+
+	for _, v := range results {
+		rc, err := oi.RefCnt(v)
+		if err != nil {
+			t.Error("Failed to get reference count: ", rc)
+			return
+		}
+		if rc != 10 {
+			t.Error("Reference Count should be 10, instead we found ", rc)
+			return
+		}
+	}
+}
+
+func TestIncRefCntBatch(t *testing.T) {
+	oi := NewObjectIntern(NewConfig())
+	results := make(map[string]uintptr, 0)
+	ptrs := make([]uintptr, len(testBytes))
+
+	for _, b := range testBytes {
+		ret, err := oi.AddOrGet(b, true)
+		if err != nil {
+			t.Error("Failed to AddOrGet: ", b)
+			return
+		}
+		results[string(b)] = ret
+		ptrs = append(ptrs, ret)
+	}
+
+	// increase reference count to 10
+	for i := 0; i < 9; i++ {
+		oi.IncRefCntBatch(ptrs)
 	}
 
 	for _, v := range results {
