@@ -676,6 +676,58 @@ func (oi *ObjectIntern) DeleteBatchUnsafe(ptrs []uintptr) {
 	}
 }
 
+// DeleteUnsafe is just like Delete but it doesn't acquire read locks or perform
+// checks to ensure that the object at the address exists. This is a dangerous method and
+// should only be used if you know what you are doing.
+func (oi *ObjectIntern) DeleteUnsafe(objAddr uintptr) (bool, error) {
+	// most likely case is that we will just decrement the reference count and return
+	if atomic.LoadUint32((*uint32)(unsafe.Pointer(objAddr))) > 1 {
+		// decrement reference count by 1
+		atomic.AddUint32((*uint32)(unsafe.Pointer(objAddr)), ^uint32(0))
+		return false, nil
+	}
+
+	oi.Lock()
+
+	obj, err := oi.store.Get(objAddr)
+	if err != nil {
+		oi.Unlock()
+		return false, err
+	}
+
+	// most likely case is that we will just decrement the reference count and return
+	if atomic.LoadUint32((*uint32)(unsafe.Pointer(objAddr))) > 1 {
+		// decrement reference count by 1
+		atomic.AddUint32((*uint32)(unsafe.Pointer(objAddr)), ^uint32(0))
+
+		oi.Unlock()
+		return false, nil
+	}
+
+	// if reference count is 1 or less, delete the object and remove it from index
+	// If one of these operations fails it is still safe to perform the other
+	// Once we get to this point we are just going to remove all traces of the object
+
+	// delete object from index first
+	// If you delete all of the objects in the slab then the slab will be deleted
+	// When this happens the memory that the slab was using is MUnmapped, which is
+	// the same memory pointed to by the key stored in the ObjIndex. When you try to
+	// access the key to delete it from the ObjIndex you will get a SEGFAULT
+	//
+	// remove 4 leading bytes for reference count since ObjIndex does not store reference count in the key
+	delete(oi.objIndex, string(obj[4:]))
+
+	// delete object from object store
+	err = oi.store.Delete(objAddr)
+
+	oi.Unlock()
+
+	if err == nil {
+		return true, nil
+	}
+	return false, err
+}
+
 // DeleteByByte decrements the reference count of an object identified by its value as a []byte.
 // Possible return values are as follows:
 //
@@ -777,6 +829,16 @@ func (oi *ObjectIntern) IncRefCnt(objAddr uintptr) (bool, error) {
 
 	oi.RUnlock()
 	return true, nil
+}
+
+// IncRefCntUnsafe increments the reference count of an object interned in the store.
+// This method does not perform any safety checks and it is upon the user to ensure
+// that the object actually exists in the store. There is no return value because
+// if used improperly this will likely result in corrupt data or a panic. This method
+// is dangerous, use at your own risk.
+func (oi *ObjectIntern) IncRefCntUnsafe(objAddr uintptr) {
+	// increment reference count by 1
+	atomic.AddUint32((*uint32)(unsafe.Pointer(objAddr)), 1)
 }
 
 // IncRefCntByString increments the reference count of an object interned in the store.
