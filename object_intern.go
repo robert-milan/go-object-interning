@@ -28,7 +28,7 @@ type ObjectIntern struct {
 func NewObjectIntern(c ObjectInternConfig) *ObjectIntern {
 	oi := ObjectIntern{
 		conf:     c,
-		store:    gos.NewObjectStore(100),
+		store:    gos.NewObjectStore(c.SlabSize),
 		objIndex: make(map[string]uintptr),
 	}
 
