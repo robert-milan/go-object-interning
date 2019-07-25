@@ -646,6 +646,33 @@ func testJoinStrings(t *testing.T, cnf ObjectInternConfig) {
 	}
 }
 
+func TestReset(t *testing.T) {
+	c := NewConfig()
+	oi := NewObjectIntern(c)
+
+	data := make([][]byte, 0, 10000)
+	rand.Seed(time.Now().UnixNano())
+	l := len(testStrings)
+
+	for i := 0; i < 10000; i++ {
+		data = append(data, []byte(fmt.Sprintf(testStrings[rand.Intn(l)]+"%d", i)))
+		oi.AddOrGet(data[i], false)
+	}
+
+	if len(oi.objIndex) != 10000 {
+		t.Fatalf("Length of object index should be 10000, instead found: %d", len(oi.objIndex))
+	}
+
+	err := oi.Reset()
+	if err != nil {
+		t.Fatalf("Reset returned an error: %s", err)
+	}
+
+	if len(oi.objIndex) != 0 {
+		t.Fatalf("Length of object index should be 0, instead found: %d", len(oi.objIndex))
+	}
+}
+
 func TestAddOrGetAndDeleteByVal25(t *testing.T) {
 	cnf := NewConfig()
 	cnf.Compression = Shoco
